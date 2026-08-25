@@ -1,0 +1,5 @@
+dist/
+dist-desktop/
+node_modules/
+web/.vite/
+*.log
