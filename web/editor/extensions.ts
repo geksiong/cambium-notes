@@ -4,6 +4,55 @@ import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
+
+/** Image node with a hover-zoom button that dispatches `cambium:image-zoom`. */
+const ZoomableImage = Image.extend({
+  addNodeView() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return ({ node }: any) => {
+      let current = node;
+      const wrap = document.createElement("span");
+      wrap.className = "img-wrap";
+
+      const img = document.createElement("img");
+      img.src = current.attrs.src as string;
+      img.alt = (current.attrs.alt as string) ?? "";
+      img.title = (current.attrs.title as string) ?? "";
+      wrap.appendChild(img);
+
+      const btn = document.createElement("button");
+      btn.className = "img-zoom-btn";
+      btn.textContent = "\u2922";
+      btn.title = "Zoom image";
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.dispatchEvent(
+          new CustomEvent("cambium:image-zoom", {
+            detail: {
+              src: current.attrs.src as string,
+              alt: (current.attrs.alt as string) ?? "",
+            },
+          }),
+        );
+      });
+      wrap.appendChild(btn);
+
+      return {
+        dom: wrap,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        update(updated: any) {
+          if (updated.type.name !== current.type.name) return false;
+          current = updated;
+          img.src = updated.attrs.src as string;
+          img.alt = (updated.attrs.alt as string) ?? "";
+          img.title = (updated.attrs.title as string) ?? "";
+          return true;
+        },
+      };
+    };
+  },
+});
 import { Extension } from "@tiptap/core";
 import type { AnyExtension } from "@tiptap/core";
 import { Plugin, PluginKey, Selection, TextSelection } from "@tiptap/pm/state";
@@ -1132,7 +1181,7 @@ export function buildExtensions() {
       languageClassPrefix: "language-",
     }),
     Link.configure({ openOnClick: false, autolink: true }),
-    Image,
+    ZoomableImage,
     TightTaskList,
     // nested: allow lists (incl. other task lists) inside a task item
     TaskItem.configure({ nested: true }),

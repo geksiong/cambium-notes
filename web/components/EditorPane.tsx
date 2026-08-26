@@ -1,6 +1,7 @@
 import { EditorContent, useEditor } from "@tiptap/react";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FrontmatterPanel } from "./FrontmatterPanel.tsx";
+import { ImageModal } from "./ImageModal.tsx";
 import { editorRef, useStore } from "../state/store.ts";
 import {
   buildExtensions,
@@ -39,6 +40,19 @@ export function EditorPane() {
       if (editorRef.current === editor) editorRef.current = null;
     };
   }, [editor]);
+
+  const [zoomImg, setZoomImg] = useState<{ src: string; alt: string } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    const onZoom = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { src: string; alt: string };
+      setZoomImg({ src: detail.src, alt: detail.alt });
+    };
+    window.addEventListener("cambium:image-zoom", onZoom);
+    return () => window.removeEventListener("cambium:image-zoom", onZoom);
+  }, []);
 
   useEffect(() => {
     if (!editor || !note) return;
@@ -87,6 +101,13 @@ export function EditorPane() {
           </button>
         </span>
       </div>
+      {zoomImg && (
+        <ImageModal
+          src={zoomImg.src}
+          alt={zoomImg.alt}
+          onClose={() => setZoomImg(null)}
+        />
+      )}
     </div>
   );
 }
