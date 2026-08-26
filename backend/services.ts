@@ -107,10 +107,16 @@ interface CollectionIndex {
   bodies: Map<string, string>;
 }
 
+/** Handle for a running fs watcher so it can be stopped on unload/remove. */
+interface WatcherHandle {
+  promise: Promise<void>;
+  close(): void;
+}
+
 export class CambiumService {
   settings: AppSettings;
   private indexes = new Map<string, CollectionIndex>();
-  private watchers = new Map<string, Promise<void>>();
+  private watchers = new Map<string, WatcherHandle>();
   private reindexQueued = new Set<string>();
   /** Set by the desktop shell to push events into every open webview. */
   notify: ((event: string, detail?: unknown) => void) | null = null;
@@ -122,6 +128,7 @@ export class CambiumService {
   static async create(): Promise<CambiumService> {
     const svc = new CambiumService(await loadSettings());
     for (const c of svc.settings.collections) {
+      if (c.unloaded) continue;
       await svc.reindex(c.id);
       svc.startWatcher(c);
     }
@@ -134,10 +141,13 @@ export class CambiumService {
 
   // ------------------------------------------------------------ collections
 
-  listCollections(): Array<CollectionConfig & { noteCount: number }> {
+  listCollections(): Array<
+    CollectionConfig & { noteCount: number; loaded: boolean }
+  > {
     return this.settings.collections.map((c) => ({
       ...c,
       noteCount: this.indexes.get(c.id)?.refs.length ?? 0,
+      loaded: this.isLoaded(c.id),
     }));
   }
 
@@ -147,7 +157,11 @@ export class CambiumService {
   ): Promise<CollectionConfig> {
     const abs = await validateCollectionDir(dirPath);
     const existing = this.settings.collections.find((c) => c.path === abs);
-    if (existing) return existing;
+    if (existing) {
+      return this.isLoaded(existing.id)
+        ? existing
+        : this.loadCollection(existing.id);
+    }
     const cfg: CollectionConfig = {
       id: crypto.randomUUID().slice(0, 8),
       name: name?.trim() || path.basename(abs),
@@ -164,11 +178,42 @@ export class CambiumService {
   }
 
   async removeCollection(id: string): Promise<void> {
+    this.stopWatcher(id);
     this.settings.collections = this.settings.collections.filter((c) =>
       c.id !== id
     );
     this.indexes.delete(id);
     await this.persist();
+  }
+
+  /**
+   * Release a registered collection's index and file watcher without
+   * forgetting it. The flag persists so restarts keep it unloaded.
+   */
+  async unloadCollection(id: string): Promise<void> {
+    const cfg = this.collection(id);
+    if (!this.isLoaded(id)) return;
+    cfg.unloaded = true;
+    this.stopWatcher(id);
+    this.indexes.delete(id);
+    await this.persist();
+    this.notify?.("index-changed", { collectionId: id });
+  }
+
+  /** (Re)load a previously unloaded collection: index it and start watching. */
+  async loadCollection(id: string): Promise<CollectionConfig> {
+    const cfg = this.collection(id);
+    cfg.unloaded = false;
+    await this.persist();
+    await this.reindex(id);
+    this.startWatcher(cfg);
+    this.notify?.("index-changed", { collectionId: id });
+    return cfg;
+  }
+
+  private isLoaded(id: string): boolean {
+    const cfg = this.settings.collections.find((c) => c.id === id);
+    return !!cfg && !cfg.unloaded;
   }
 
   private collection(id: string): CollectionConfig {
@@ -218,7 +263,7 @@ export class CambiumService {
 
   private async reindex(collectionId: string): Promise<void> {
     const cfg = this.settings.collections.find((c) => c.id === collectionId);
-    if (!cfg) return;
+    if (!cfg || cfg.unloaded) return;
     try {
       this.indexes.set(collectionId, await indexCollection(cfg));
     } catch (e) {
@@ -228,24 +273,48 @@ export class CambiumService {
 
   private startWatcher(cfg: CollectionConfig): void {
     if (this.watchers.has(cfg.id) || !("watchFs" in Deno)) return;
+    let closing = false;
+    let resource: Deno.FsWatcher | null = null;
     const runLoop = (async () => {
       try {
         const watcher = Deno.watchFs(cfg.path, { recursive: true });
+        resource = watcher;
         let timer: number | null = null;
         const schedule = () => {
           if (timer !== null) clearTimeout(timer);
           timer = setTimeout(() => {
+            if (closing) return;
             void this.reindex(cfg.id).then(() =>
               this.notify?.("index-changed", { collectionId: cfg.id })
             );
           }, 500);
         };
-        for await (const _event of watcher) schedule();
+        for await (const _event of watcher) {
+          if (closing) break;
+          schedule();
+        }
       } catch {
-        // watcher unavailable (e.g. deleted dir); ignore
+        // watcher unavailable (e.g. deleted dir or closed on unload); ignore
       }
     })();
-    this.watchers.set(cfg.id, runLoop);
+    this.watchers.set(cfg.id, {
+      promise: runLoop,
+      close: () => {
+        closing = true;
+        try {
+          resource?.close();
+        } catch {
+          // already closed
+        }
+      },
+    });
+  }
+
+  private stopWatcher(id: string): void {
+    const handle = this.watchers.get(id);
+    if (!handle) return;
+    this.watchers.delete(id);
+    handle.close();
   }
 
   private indexOf(id: string): CollectionIndex {

@@ -219,6 +219,10 @@ The app never stores editor-specific markup.
 - Watcher: one recursive `Deno.watchFs` per open collection (debounced 500 ms)
   reindexes changed subtrees and pings the webview via
   `executeJs("dispatchEvent(new CustomEvent('cambium:index-changed'))")`.
+- Unloading (`collections.unload`) stops the watcher and drops the in-memory
+  index/search bodies without unregistering the folder; the persisted `unloaded`
+  flag survives restarts, and `collections.load` (or selecting it) brings the
+  collection back.
 
 ### 6.2 Markdown & frontmatter
 
@@ -390,7 +394,7 @@ interface CambiumPlugin {
 | --------------------------------------------------------- | -------------------- | --------------------------------- |
 | `app.ping/version`                                        | –                    | status info                       |
 | `settings.get/updateAuthor/upsertProvider/removeProvider` | – / partial          | AppSettings                       |
-| `collections.list/add/remove`                             | path?                | configs / validation result       |
+| `collections.list/add/remove/load/unload`                 | path? / id           | configs / validation result       |
 | `fs.tree`                                                 | `{collectionId}`     | nested entries (.md files + dirs) |
 | `note.read/write/create/delete/rename`                    | paths + payload      | note / ok                         |
 | `templates.list`                                          | `{collectionId?}`    | builtin + user templates          |

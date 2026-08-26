@@ -23,6 +23,7 @@ export function App() {
   const activeCollectionIdRef = activeCollectionId;
   const setActiveTab = useStore((s) => s.setActive);
   const closeTab = useStore((s) => s.closeTab);
+  const unloadCollection = useStore((s) => s.unloadCollection);
   const panel = useStore((s) => s.panel);
   const setPanel = useStore((s) => s.setPanel);
   const dialog = useStore((s) => s.dialog);
@@ -102,10 +103,17 @@ export function App() {
           {!collections.length && <option value="">No collections</option>}
           {collections.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.name} ({c.noteCount})
+              {c.name} ({c.noteCount}){c.loaded ? "" : " — unloaded"}
             </option>
           ))}
         </select>
+        <button
+          title="Unload current collection (frees index and watcher; stays registered)"
+          disabled={!activeCollectionId}
+          onClick={() => void unloadCollection()}
+        >
+          ⏏
+        </button>
         <button onClick={() => setDialog("templates")}>New</button>
         <button
           onClick={() =>

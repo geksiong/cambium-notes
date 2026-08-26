@@ -27,6 +27,8 @@ export interface CollectionConfig {
   templateDir?: string;
   idFormat?: IdFormat;
   publish?: PublishProfile;
+  /** Set when the collection is registered but not loaded into memory. */
+  unloaded?: boolean;
 }
 
 export type IdFormat = "zettel" | "timestamp" | "none";

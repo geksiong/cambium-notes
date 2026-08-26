@@ -34,6 +34,8 @@ export const METHODS: MethodTable = {
   "collections.add": (svc, a: { path: string; name?: string }) =>
     svc.addCollection(a.path, a.name),
   "collections.remove": (svc, a: { id: string }) => svc.removeCollection(a.id),
+  "collections.load": (svc, a: { id: string }) => svc.loadCollection(a.id),
+  "collections.unload": (svc, a: { id: string }) => svc.unloadCollection(a.id),
 
   "fs.tree": (svc, a: { collectionId: string }) => svc.tree(a.collectionId),
   "note.read": (svc, a: { collectionId: string; path: string }) =>

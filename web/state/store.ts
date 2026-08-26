@@ -19,7 +19,9 @@ export interface Tab {
 }
 
 interface StoreState {
-  collections: Array<CollectionConfig & { noteCount: number }>;
+  collections: Array<
+    CollectionConfig & { noteCount: number; loaded: boolean }
+  >;
   activeCollectionId: string | null;
   tree: FileEntry[];
   tabs: Tab[];
@@ -37,6 +39,8 @@ interface StoreState {
   bootstrap(): Promise<void>;
   refreshCollections(): Promise<void>;
   setActiveCollection(id: string): Promise<void>;
+  unloadCollection(): Promise<void>;
+  loadCollection(id: string): Promise<void>;
   loadTree(): Promise<void>;
   openNote(path: string, title?: string): Promise<void>;
   closeTab(path: string): void;
@@ -88,7 +92,7 @@ export const useStore = create<StoreState>((set, get) => ({
         applyTheme(pref);
         set({ themePref: pref });
       }
-      const first = get().collections[0];
+      const first = get().collections.find((c) => c.loaded);
       if (first) {
         await get().setActiveCollection(first.id);
         // Auto-open the first note so the editor is immediately visible.
@@ -102,7 +106,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   async refreshCollections() {
     const collections = await rpc<
-      Array<CollectionConfig & { noteCount: number }>
+      Array<CollectionConfig & { noteCount: number; loaded: boolean }>
     >(
       "collections.list",
     );
@@ -110,8 +114,69 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   async setActiveCollection(id) {
+    // Selecting an unloaded collection loads it on demand.
+    const target = get().collections.find((c) => c.id === id);
+    if (target && !target.loaded) {
+      await get().loadCollection(id);
+      return;
+    }
     set({ activeCollectionId: id, tree: [], activePath: null });
     await get().loadTree();
+  },
+
+  /** Unload the active collection: flush edits, release index + watcher. */
+  async unloadCollection() {
+    const id = get().activeCollectionId;
+    if (!id) {
+      set({ status: "No collection to unload." });
+      return;
+    }
+    const prefix = `${id}:`;
+    for (const key of [...get().dirty]) {
+      if (!key.startsWith(prefix)) continue;
+      const path = key.slice(prefix.length);
+      const timer = saveTimers.get(path);
+      if (timer !== undefined) {
+        clearTimeout(timer);
+        saveTimers.delete(path);
+      }
+      await get().save(path);
+    }
+    try {
+      await rpc("collections.unload", { id });
+    } catch (e) {
+      set({ status: `Unload failed: ${msg(e)}` });
+      return;
+    }
+    await get().refreshCollections();
+    set((s) => {
+      const notes: typeof s.notes = {};
+      for (const [k, v] of Object.entries(s.notes)) {
+        if (!k.startsWith(prefix)) notes[k] = v;
+      }
+      return {
+        notes,
+        dirty: new Set([...s.dirty].filter((k) => !k.startsWith(prefix))),
+        tabs: [],
+        tree: [],
+        activePath: null,
+      };
+    });
+    const next = get().collections.find((c) => c.loaded && c.id !== id);
+    if (next) await get().setActiveCollection(next.id);
+    else set({ activeCollectionId: null, status: "Collection unloaded." });
+  },
+
+  async loadCollection(id) {
+    try {
+      await rpc("collections.load", { id });
+    } catch (e) {
+      set({ status: `Load failed: ${msg(e)}` });
+      return;
+    }
+    await get().refreshCollections();
+    await get().setActiveCollection(id);
+    set({ status: "Collection loaded." });
   },
 
   async loadTree() {
