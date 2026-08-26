@@ -1,6 +1,8 @@
 import * as path from "@std/path";
 import { splitFrontMatter, titleFromNote } from "../src-core/frontmatter.ts";
 import { buildGraph } from "../src-core/graph.ts";
+import { resolveLink } from "../src-core/links.ts";
+import { rewriteLinksForRename } from "../src-core/rename.ts";
 import { applyTemplate } from "../src-core/templates.ts";
 import { generateId, safeFileName } from "../src-core/ids.ts";
 import { query } from "../src-core/search.ts";
@@ -299,8 +301,54 @@ export class CambiumService {
     return deleteEntry(this.collection(collectionId).path, rel);
   }
 
-  renameEntry(collectionId: string, from: string, to: string) {
-    return renameEntry(this.collection(collectionId).path, from, to);
+  async renameEntry(collectionId: string, from: string, to: string) {
+    const cfg = this.collection(collectionId);
+    const dest = await renameEntry(cfg.path, from, to);
+
+    // Rewire wikilinks in notes that resolved to the old location, using the
+    // pre-rename path list for resolution.
+    const idx = this.indexes.get(collectionId);
+    if (idx) {
+      const samePath = (a: string, b: string) =>
+        a.replace(/\.md$/i, "") === b.replace(/\.md$/i, "");
+      const canonicalFrom = idx.refs.find((r) =>
+        samePath(r.path, from)
+      )?.path ?? from;
+      const prePaths = idx.refs.map((r) => r.path);
+      for (const ref of idx.refs) {
+        if (
+          !ref.links.some((l) => resolveLink(l, prePaths) === canonicalFrom)
+        ) {
+          continue;
+        }
+        try {
+          const abs = path.join(cfg.path, ref.path);
+          const text = await Deno.readTextFile(abs);
+          const { text: rewritten, count } = rewriteLinksForRename(
+            text,
+            canonicalFrom,
+            dest,
+            prePaths,
+          );
+          if (count > 0) await Deno.writeTextFile(abs, rewritten);
+        } catch {
+          // unreadable file: skip link rewriting for it
+        }
+      }
+      // Keep search/graph consistent immediately; the watcher reindexes soon
+      // anyway, but a rename should not leave stale entries behind.
+      const moved = idx.refs.find((r) => r.path === canonicalFrom);
+      if (moved) {
+        moved.path = dest;
+        moved.title = titleFromNote(dest, moved.fm);
+        const body = idx.bodies.get(canonicalFrom);
+        if (body !== undefined) {
+          idx.bodies.delete(canonicalFrom);
+          idx.bodies.set(dest, body);
+        }
+      }
+    }
+    this.notify?.("index-changed", { collectionId });
   }
 
   // -------------------------------------------------------------- templates

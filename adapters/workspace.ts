@@ -6,6 +6,7 @@ import {
   titleFromNote,
 } from "../src-core/frontmatter.ts";
 import { scanNote } from "../src-core/links.ts";
+import { normalizeRename } from "../src-core/rename.ts";
 import type {
   CollectionConfig,
   FileEntry,
@@ -112,15 +113,41 @@ export async function deleteEntry(root: string, rel: string): Promise<void> {
   await Deno.remove(guard(root, rel), { recursive: true });
 }
 
+/**
+ * Rename (or move) an entry within the collection. Bare destination names get
+ * `.md` appended for files; overwriting an existing entry is refused.
+ * Returns the resolved destination path actually used.
+ */
 export async function renameEntry(
   root: string,
   from: string,
   to: string,
-): Promise<void> {
-  const src = guard(root, from);
-  const dst = guard(root, to);
+): Promise<string> {
+  const pair = normalizeRename(from, to);
+  const src = guard(root, pair.from);
+  const st = await Deno.stat(src).catch(() => null);
+  if (!st) throw new Error(`Not found: ${pair.from}`);
+  // Bare names get .md appended; anything else must already be a note.
+  if (!st.isDirectory && !/\.[^/]+$/.test(baseNameOf(pair.to))) {
+    pair.to = `${pair.to}.md`;
+  }
+  if (!st.isDirectory && !/\.md$/i.test(pair.to)) {
+    throw new Error(
+      `Note renames must keep the .md extension: ${baseNameOf(pair.to)}`,
+    );
+  }
+  const dst = guard(root, pair.to);
+  if (await Deno.stat(dst).catch(() => null)) {
+    throw new Error(`Destination already exists: ${pair.to}`);
+  }
   await Deno.mkdir(path.dirname(dst), { recursive: true });
   await Deno.rename(src, dst);
+  return pair.to;
+}
+
+function baseNameOf(p: string): string {
+  const i = p.lastIndexOf("/");
+  return i >= 0 ? p.slice(i + 1) : p;
 }
 
 export interface NoteBodyStore {

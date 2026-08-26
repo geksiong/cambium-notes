@@ -113,6 +113,15 @@ export function Explorer() {
             );
           }
           const isActive = activePath === e.path;
+          const beginRename = () => {
+            const next = window.prompt("Rename file", e.name)?.trim();
+            if (!next || next === e.name) return;
+            // Keep it a note: append .md when no extension was typed.
+            const name = /\.[^/]+$/.test(next) ? next : `${next}.md`;
+            const i = e.path.lastIndexOf("/");
+            const to = i >= 0 ? `${e.path.slice(0, i + 1)}${name}` : name;
+            void renameEntry(e.path, to).catch((err) => alert(msg(err)));
+          };
           return (
             <div
               key={e.path}
@@ -122,17 +131,12 @@ export function Explorer() {
                 style={indent}
                 className="file-open"
                 onClick={() => void openNote(e.path)}
-                onDoubleClick={() => {
-                  const next = window.prompt("Rename", e.name);
-                  if (next && next !== e.name) {
-                    const to = e.path.slice(0, -e.name.length) + next;
-                    void renameEntry(e.path, to).catch((err) =>
-                      alert(msg(err))
-                    );
-                  }
-                }}
+                onDoubleClick={beginRename}
               >
                 {e.name.replace(/\.md$/, "")}
+              </button>
+              <button className="icon" title="Rename" onClick={beginRename}>
+                ✎
               </button>
               <button
                 className="icon danger"

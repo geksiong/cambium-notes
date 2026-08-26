@@ -248,12 +248,54 @@ export const useStore = create<StoreState>((set, get) => ({
       set({ status: "Cannot rename: no collection selected." });
       return;
     }
-    await rpc("note.rename", { collectionId: id, from, to });
-    set((s) => ({
-      tabs: s.tabs.map((t) =>
-        t.path === from ? { ...t, path: to, title: to.split("/").pop()! } : t
-      ),
-    }));
+    // Cancel any pending autosave and flush unsaved edits first: a timer
+    // firing after the rename would recreate the file at its old location.
+    const timer = saveTimers.get(from);
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      saveTimers.delete(from);
+    }
+    const oldKey = `${id}:${from}`;
+    if (get().dirty.has(oldKey)) await get().save(from);
+    // The backend resolves the destination (may append a missing .md); fall
+    // back to the requested path if the transport yields nothing usable.
+    let dest = to;
+    try {
+      const res = await rpc<unknown>("note.rename", {
+        collectionId: id,
+        from,
+        to,
+      });
+      if (typeof res === "string" && res) dest = res;
+    } catch (e) {
+      set({ status: `Rename failed: ${msg(e)}` });
+      throw e;
+    }
+    const newKey = `${id}:${dest}`;
+    set((s) => {
+      const notes = { ...s.notes };
+      if (notes[oldKey]) {
+        notes[newKey] = { ...notes[oldKey], path: dest };
+        delete notes[oldKey];
+      }
+      const dirty = new Set(s.dirty);
+      if (dirty.delete(oldKey)) dirty.add(newKey);
+      return {
+        notes,
+        dirty,
+        tabs: s.tabs.map((t) =>
+          t.path === from
+            ? {
+              ...t,
+              path: dest,
+              title: dest.split("/").pop()?.replace(/\.md$/, "") ?? dest,
+            }
+            : t
+        ),
+        activePath: s.activePath === from ? dest : s.activePath,
+        status: `Renamed ${from} → ${dest}`,
+      };
+    });
     await get().loadTree();
   },
 
