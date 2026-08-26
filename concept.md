@@ -128,9 +128,10 @@ cambium/
     ├── editor/extensions.ts ← TipTap setup + markdown round-trip
     ├── editor/codeRenderers.ts ← plugin registry impl (ABC builtin)
     ├── plugins/builtin-abc.ts
-    └── components/          ← Explorer, EditorPane, FrontmatterPanel,
-                                GraphView, AiPanel, GitPanel, PublishPanel,
-                                TemplatesDialog, SettingsDialog (+AddCollection)
+    └── components/          ← Explorer, EditorPane, FrontmatterPanel (in-editor,
+                                OutlinePanel TOC), GraphView, AiPanel, GitPanel,
+                                PublishPanel, TemplatesDialog, SettingsDialog
+                                (+AddCollection)
 ```
 
 A collection (user content) looks like:

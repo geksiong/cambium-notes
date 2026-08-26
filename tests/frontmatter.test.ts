@@ -3,7 +3,9 @@ import {
   hasFrontMatter,
   isDraft,
   joinFrontMatter,
+  parseFrontMatterYaml,
   splitFrontMatter,
+  stringifyFrontMatterYaml,
   tagsFromFrontMatter,
   titleFromNote,
 } from "../src-core/frontmatter.ts";
@@ -56,4 +58,18 @@ Deno.test("title fallback and helpers", () => {
   assertEquals(tagsFromFrontMatter({ tags: "a, b c" }), ["a", "b", "c"]);
   assertEquals(isDraft({ draft: true }), true);
   assertEquals(isDraft({}), false);
+});
+
+Deno.test("yaml text round-trips", () => {
+  const fm = { title: "T", tags: ["a", "b"], draft: true, nested: { x: 1 } };
+  const text = stringifyFrontMatterYaml(fm);
+  assertEquals(parseFrontMatterYaml(text), fm);
+});
+
+Deno.test("yaml text edge cases", () => {
+  assertEquals(stringifyFrontMatterYaml({}), "");
+  assertEquals(parseFrontMatterYaml(""), {});
+  assertEquals(parseFrontMatterYaml("   "), {});
+  assertEquals(parseFrontMatterYaml("title: [unclosed"), null);
+  assertEquals(parseFrontMatterYaml("- just\n- a list"), null);
 });

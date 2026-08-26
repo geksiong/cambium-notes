@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { AiPanel } from "./components/AiPanel.tsx";
 import { EditorPane } from "./components/EditorPane.tsx";
 import { Explorer } from "./components/Explorer.tsx";
-import { FrontmatterPanel } from "./components/FrontmatterPanel.tsx";
 import { GraphView } from "./components/GraphView.tsx";
 import { GitPanel } from "./components/GitPanel.tsx";
+import { OutlinePanel } from "./components/OutlinePanel.tsx";
 import { PublishPanel } from "./components/PublishPanel.tsx";
 import { TemplatesDialog } from "./components/TemplatesDialog.tsx";
 import {
@@ -115,14 +115,14 @@ export function App() {
         </button>
         <div className="spacer" />
         <div className="panel-switch">
-          {(["frontmatter", "ai", "git", "publish"] as const).map((p) => (
+          {(["outline", "ai", "git", "publish"] as const).map((p) => (
             <button
               key={p}
               className={panel === p ? "on" : ""}
               onClick={() => setPanel(panel === p ? null : p)}
             >
               {{
-                frontmatter: "Info",
+                outline: "Contents",
                 ai: "AI",
                 git: "Git",
                 publish: "Publish",
@@ -164,7 +164,7 @@ export function App() {
 
       {panel && (
         <aside className="right-panel">
-          {panel === "frontmatter" && <FrontmatterPanel />}
+          {panel === "outline" && <OutlinePanel />}
           {panel === "ai" && <AiPanel />}
           {panel === "git" && <GitPanel />}
           {panel === "publish" && <PublishPanel />}

@@ -31,6 +31,30 @@ export function hasFrontMatter(text: string): boolean {
   return YAML_DELIM.test(text);
 }
 
+/**
+ * Serializes frontmatter to a YAML fragment (no --- fences) for the text
+ * editor mode of the frontmatter panel.
+ */
+export function stringifyFrontMatterYaml(fm: FrontMatter): string {
+  return fm && Object.keys(fm).length > 0 ? stringifyYaml(fm) : "";
+}
+
+/**
+ * Parses a YAML fragment into frontmatter. Returns null for malformed input
+ * or non-mapping documents so callers can keep their last valid value.
+ */
+export function parseFrontMatterYaml(text: string): FrontMatter | null {
+  try {
+    const parsed = text.trim() === "" ? {} : parseYaml(text);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as FrontMatter;
+    }
+  } catch {
+    // Malformed YAML: signal the caller instead of losing their keystrokes.
+  }
+  return null;
+}
+
 /** Rebuilds a note from (possibly edited) frontmatter and an untouched body. */
 export function joinFrontMatter(fm: FrontMatter, body: string): string {
   if (!fm || Object.keys(fm).length === 0) return body;

@@ -10,7 +10,7 @@ import type {
 import { rpc } from "../transport.ts";
 import { applyTheme } from "./theme.ts";
 
-export type PanelKind = "frontmatter" | "ai" | "git" | "publish" | null;
+export type PanelKind = "outline" | "ai" | "git" | "publish" | null;
 export type DialogKind = "templates" | "settings" | "add-collection" | null;
 
 export interface Tab {
@@ -68,7 +68,7 @@ export const useStore = create<StoreState>((set, get) => ({
   notes: {},
   dirty: new Set<string>(),
   graph: null,
-  panel: "frontmatter",
+  panel: "outline",
   dialog: null,
   status: "",
   version: "",

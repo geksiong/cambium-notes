@@ -1,5 +1,6 @@
 import { EditorContent, useEditor } from "@tiptap/react";
 import { useCallback, useEffect } from "react";
+import { FrontmatterPanel } from "./FrontmatterPanel.tsx";
 import { editorRef, useStore } from "../state/store.ts";
 import { buildExtensions, getMarkdown } from "../editor/extensions.ts";
 
@@ -61,6 +62,7 @@ export function EditorPane() {
   return (
     <div className="editor-pane">
       <Toolbar editor={editor} />
+      <FrontmatterPanel />
       <EditorContent editor={editor} className="prose-host" />
       <div className="editor-footer">
         <span>{activePath}</span>

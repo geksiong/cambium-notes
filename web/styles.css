@@ -595,12 +595,125 @@ select:focus {
   border-bottom: 1px dashed var(--border);
   user-select: none;
 }
+.editor-footer {
   display: flex;
   justify-content: space-between;
   padding: 5px 12px;
   border-top: 1px solid var(--border);
   color: var(--fg-dim);
   font-size: 0.78rem;
+}
+
+/* ---------- frontmatter card (top of document) ---------- */
+.fm-card {
+  margin: 10px clamp(20px, 8vw, 120px) 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-2);
+}
+.fm-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+}
+.fm-fold {
+  background: none;
+  border: none;
+  color: var(--fg-dim);
+  padding: 0 2px;
+  font-size: 0.8rem;
+}
+.fm-fold:hover {
+  color: var(--fg);
+}
+.fm-tabs {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.fm-tabs button {
+  padding: 2px 10px;
+  font-size: 0.78rem;
+  background: transparent;
+  border-color: transparent;
+  color: var(--fg-dim);
+  border-radius: 999px;
+}
+.fm-tabs button.on {
+  background: var(--bg-3);
+  border-color: var(--border);
+  color: var(--fg);
+}
+.fm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 12px 12px;
+}
+.fm-yaml {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  font-family: ui-monospace, monospace;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+.fm-error {
+  color: var(--danger);
+  font-size: 0.78rem;
+}
+
+/* ---------- outline / table of contents ---------- */
+.toc-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toc {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0 -6px;
+}
+.toc-item {
+  background: none;
+  border: none;
+  text-align: left;
+  color: var(--fg);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.toc-item:hover {
+  background: var(--bg-3);
+}
+.toc-item.on,
+.toc-item.on:hover {
+  color: var(--accent);
+  background: var(--bg-3);
+}
+.toc-item.l1 {
+  font-weight: 600;
+  padding-left: 6px;
+}
+.toc-item.l2 {
+  padding-left: 18px;
+}
+.toc-item.l3 {
+  padding-left: 30px;
+}
+.toc-item.l4 {
+  padding-left: 42px;
+}
+.toc-item.l5,
+.toc-item.l6 {
+  padding-left: 54px;
+  color: var(--fg-dim);
 }
 
 /* ---------- right panel ---------- */
@@ -679,13 +792,13 @@ select:focus {
   margin-top: auto;
 }
 
-.fm-panel .fm-field {
+.fm-card .fm-field {
   display: grid;
-  grid-template-columns: 90px 1fr;
+  grid-template-columns: 110px 1fr;
   align-items: center;
   gap: 6px;
 }
-.fm-panel .fm-field span {
+.fm-card .fm-field span {
   color: var(--fg-dim);
   font-size: 0.78rem;
 }

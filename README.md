@@ -20,8 +20,9 @@ webview, so the same app can later ship as a web app or Tauri binary (see
 
 - **WYSIWYG markdown editor** (TipTap/ProseMirror) that round-trips canonical
   markdown to disk, with debounced autosave and Ctrl/Cmd-S
-- **Frontmatter support** — YAML header parsing/editing panel; drives titles,
-  drafts, tags, slugs and publishing metadata
+- **Frontmatter support** — YAML header card above the document with tabbed
+  form / raw-YAML editing; drives titles, drafts, tags, slugs and publishing
+  metadata
 - **Templates** — builtin zettel/blog-post/daily templates plus per-collection
   templates in `.cambium/templates/*.md` with `{{title}} {{date}} {{id}}…`
   variables
@@ -81,8 +82,9 @@ First steps in the app:
    containing `.md` files (native folder pickers are not yet available in
    `deno desktop`; path validation happens server-side)
 2. Create notes from templates with **+**, link them with `[[wikilinks]]`, edit
-   frontmatter in the right panel
-3. Open **Graph** from the toolbar to see the link structure
+   frontmatter via the Form/YAML tabs above the document
+3. Open **Graph** from the toolbar to see the link structure; use the
+   **Contents** panel for a clickable outline of the open note
 4. Configure AI providers under **⚙ Settings** before using the AI panel
 5. To publish: open the **Publish** panel → _Create Astro site_ → _Sync_ →
    _Build_ → set target/repo → _Deploy_
