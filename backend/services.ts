@@ -25,6 +25,7 @@ import {
 } from "../adapters/astro.ts";
 import {
   deleteEntry,
+  guard,
   indexCollection,
   readNote as fsReadNote,
   readTree,
@@ -33,6 +34,20 @@ import {
   writeNote as fsWriteNote,
 } from "../adapters/workspace.ts";
 import { loadSettings, saveSettings } from "../adapters/settings.ts";
+
+const IMAGE_MIME: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".svg": "image/svg+xml",
+  ".webp": "image/webp",
+  ".bmp": "image/bmp",
+  ".ico": "image/x-icon",
+  ".tiff": "image/tiff",
+  ".tif": "image/tiff",
+  ".avif": "image/avif",
+};
 
 const BUILTIN_TEMPLATES = [
   {
@@ -333,6 +348,20 @@ export class CambiumService {
 
   readNote(collectionId: string, rel: string) {
     return fsReadNote(this.collection(collectionId).path, rel);
+  }
+
+  async readFile(
+    collectionId: string,
+    rel: string,
+  ): Promise<{ body: Uint8Array; contentType: string }> {
+    const cfg = this.collection(collectionId);
+    const abs = guard(cfg.path, rel);
+    const stat = await Deno.stat(abs);
+    if (!stat.isFile) throw new Error("Not a file");
+    const body = await Deno.readFile(abs);
+    const ext = abs.slice(abs.lastIndexOf(".")).toLowerCase();
+    const contentType = IMAGE_MIME[ext] ?? "application/octet-stream";
+    return { body, contentType };
   }
 
   async writeNote(collectionId: string, rel: string, text: string) {

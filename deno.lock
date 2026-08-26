@@ -8,6 +8,7 @@
     "npm:@expressive-code/core@~0.44.1": "0.44.1",
     "npm:@tiptap/core@^2.11.0": "2.27.2_@tiptap+pm@2.27.2",
     "npm:@tiptap/extension-code-block@^2.11.0": "2.27.2_@tiptap+core@2.27.2__@tiptap+pm@2.27.2_@tiptap+pm@2.27.2",
+    "npm:@tiptap/extension-image@^2.11.0": "2.27.2_@tiptap+core@2.27.2__@tiptap+pm@2.27.2",
     "npm:@tiptap/extension-link@^2.11.0": "2.27.2_@tiptap+core@2.27.2__@tiptap+pm@2.27.2_@tiptap+pm@2.27.2",
     "npm:@tiptap/extension-task-item@^2.11.0": "2.27.2_@tiptap+core@2.27.2__@tiptap+pm@2.27.2_@tiptap+pm@2.27.2",
     "npm:@tiptap/extension-task-list@^2.11.0": "2.27.2_@tiptap+core@2.27.2__@tiptap+pm@2.27.2",
@@ -498,6 +499,12 @@
       "dependencies": [
         "@tiptap/core",
         "@tiptap/pm"
+      ]
+    },
+    "@tiptap/extension-image@2.27.2_@tiptap+core@2.27.2__@tiptap+pm@2.27.2": {
+      "integrity": "sha512-5zL/BY41FIt72azVrCrv3n+2YJ/JyO8wxCcA4Dk1eXIobcgVyIdo4rG39gCqIOiqziAsqnqoj12QHTBtHsJ6mQ==",
+      "dependencies": [
+        "@tiptap/core"
       ]
     },
     "@tiptap/extension-italic@2.27.2_@tiptap+core@2.27.2__@tiptap+pm@2.27.2_@tiptap+pm@2.27.2": {
@@ -2020,6 +2027,7 @@
       "npm:@expressive-code/core@~0.44.1",
       "npm:@tiptap/core@^2.11.0",
       "npm:@tiptap/extension-code-block@^2.11.0",
+      "npm:@tiptap/extension-image@^2.11.0",
       "npm:@tiptap/extension-link@^2.11.0",
       "npm:@tiptap/extension-task-item@^2.11.0",
       "npm:@tiptap/extension-task-list@^2.11.0",

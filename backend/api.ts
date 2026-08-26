@@ -15,6 +15,9 @@ export async function handleApi(
     if (url.pathname === "/api/ai/stream" && req.method === "POST") {
       return await handleAiStream(req, svc);
     }
+    if (url.pathname === "/api/file" && req.method === "GET") {
+      return await handleFileServe(url, svc);
+    }
     const m = /^\/api\/rpc\/([\w.]+)$/.exec(url.pathname);
     if (m && req.method === "POST") {
       const handler = METHODS[m[1]];
@@ -106,13 +109,38 @@ async function handleAiStream(
   );
 }
 
+async function handleFileServe(
+  url: URL,
+  svc: CambiumService,
+): Promise<Response> {
+  const collectionId = url.searchParams.get("collectionId");
+  const filePath = url.searchParams.get("path");
+  if (!collectionId || !filePath) {
+    return cors(json({ error: "Missing collectionId or path" }, 400));
+  }
+  try {
+    const { body, contentType } = await svc.readFile(collectionId, filePath);
+    return cors(
+      new Response(body as unknown as Blob, {
+        headers: {
+          "content-type": contentType,
+          "cache-control": "no-cache",
+        },
+      }),
+    );
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return cors(json({ error: message }, 404));
+  }
+}
+
 function json(payload: unknown, status = 200): Response {
   return Response.json(payload, { status });
 }
 
 function cors(res: Response): Response {
   res.headers.set("access-control-allow-origin", "*");
-  res.headers.set("access-control-allow-methods", "POST, OPTIONS");
+  res.headers.set("access-control-allow-methods", "GET, POST, OPTIONS");
   res.headers.set("access-control-allow-headers", "content-type");
   return res;
 }

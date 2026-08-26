@@ -2,7 +2,11 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import { useCallback, useEffect } from "react";
 import { FrontmatterPanel } from "./FrontmatterPanel.tsx";
 import { editorRef, useStore } from "../state/store.ts";
-import { buildExtensions, getMarkdown } from "../editor/extensions.ts";
+import {
+  buildExtensions,
+  getMarkdown,
+  imageResolveCtx,
+} from "../editor/extensions.ts";
 
 export function EditorPane() {
   const activeCollectionId = useStore((s) => s.activeCollectionId);
@@ -38,11 +42,15 @@ export function EditorPane() {
 
   useEffect(() => {
     if (!editor || !note) return;
+    imageResolveCtx.collectionId = activeCollectionId;
+    imageResolveCtx.notePath = activePath;
     editor.commands.setContent(note.body, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePath, activeCollectionId]);
 
   if (!activeCollectionId) {
+    imageResolveCtx.collectionId = null;
+    imageResolveCtx.notePath = null;
     return (
       <div className="editor-empty muted">
         Add or select a collection to begin.
@@ -50,6 +58,8 @@ export function EditorPane() {
     );
   }
   if (!note || !activePath) {
+    imageResolveCtx.collectionId = null;
+    imageResolveCtx.notePath = null;
     return (
       <div className="editor-empty muted">
         Open a note from the explorer, or create one with <b>+</b>.

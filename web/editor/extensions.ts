@@ -3,6 +3,8 @@ import Link from "@tiptap/extension-link";
 import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
 import StarterKit from "@tiptap/starter-kit";
+import Image from "@tiptap/extension-image";
+import { Extension } from "@tiptap/core";
 import type { AnyExtension } from "@tiptap/core";
 import { Plugin, PluginKey, Selection, TextSelection } from "@tiptap/pm/state";
 import { Markdown } from "tiptap-markdown";
@@ -15,6 +17,101 @@ import {
 } from "./highlight.ts";
 import { parseFence, patchFenceRenderer } from "./fence.ts";
 import { BUILTIN_PLUGINS } from "../plugins/index.ts";
+
+/**
+ * Mutable context for resolving relative image URLs in the editor.
+ * Updated by EditorPane when a note is loaded.
+ */
+export const imageResolveCtx: {
+  collectionId: string | null;
+  notePath: string | null;
+} = { collectionId: null, notePath: null };
+
+/**
+ * Resolve a possibly-relative image URL against the current note's path
+ * and return a URL that points to the backend file-serving endpoint.
+ */
+function resolveImageUrl(
+  src: string,
+  collectionId: string,
+  notePath: string,
+): string {
+  if (/^(https?:|data:|blob:|file:)/.test(src)) return src;
+  const noteDir = notePath.includes("/")
+    ? notePath.slice(0, notePath.lastIndexOf("/"))
+    : "";
+  let resolved: string;
+  if (src.startsWith("/")) {
+    resolved = src.slice(1);
+  } else if (noteDir) {
+    resolved = `${noteDir}/${src}`.replace(/\/+/g, "/");
+  } else {
+    resolved = src;
+  }
+  // Normalize ../ and ./ segments
+  const parts = resolved.split("/");
+  const stack: string[] = [];
+  for (const part of parts) {
+    if (part === "..") stack.pop();
+    else if (part !== "." && part !== "") stack.push(part);
+  }
+  resolved = stack.join("/");
+  return `/api/file?collectionId=${encodeURIComponent(collectionId)}&path=${
+    encodeURIComponent(resolved)
+  }`;
+}
+
+/**
+ * TipTap extension that registers a markdown-it plugin to transform
+ * relative image URLs to use the backend file-serving endpoint.
+ * The plugin is guarded to prevent multiple applications.
+ */
+const ImageResolver = Extension.create({
+  name: "imageResolver",
+  addStorage() {
+    return {
+      markdown: {
+        parse: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setup(md: any) {
+            if (md._imageResolveApplied) return;
+            md._imageResolveApplied = true;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const defaultImageRule = md.renderer.rules.image as any;
+            md.renderer.rules.image = (
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              tokens: any,
+              idx: number,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              options: any,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              env: any,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              self: any,
+            ) => {
+              const token = tokens[idx];
+              const src = token.attrGet("src");
+              if (
+                src && imageResolveCtx.collectionId && imageResolveCtx.notePath
+              ) {
+                const resolved = resolveImageUrl(
+                  src,
+                  imageResolveCtx.collectionId,
+                  imageResolveCtx.notePath,
+                );
+                token.attrSet("src", resolved);
+              }
+              if (defaultImageRule) {
+                return defaultImageRule(tokens, idx, options, env, self);
+              }
+              return self.renderToken(tokens, idx, options);
+            };
+          },
+        },
+      },
+    };
+  },
+});
 
 /** Transaction meta key: focus the spec editor of the block at `pos`. */
 const FENCE_FOCUS = "cbFenceFocus";
@@ -958,7 +1055,9 @@ export const TightTaskList = TaskList.extend({
                   const first = token.type === "inline"
                     ? token.children?.[0]
                     : null;
-                  if (first?.type === "text" && /^\[[xX ]\]$/.test(first.content)) {
+                  if (
+                    first?.type === "text" && /^\[[xX ]\]$/.test(first.content)
+                  ) {
                     first.content += " ";
                     token.content += " ";
                   }
@@ -978,7 +1077,9 @@ export const TightTaskList = TaskList.extend({
                       children[i].content.startsWith("<input")
                     ) {
                       const next = children[i + 1];
-                      if (next.type === "text" && next.content.startsWith(" ")) {
+                      if (
+                        next.type === "text" && next.content.startsWith(" ")
+                      ) {
                         next.content = next.content.slice(1);
                       }
                     }
@@ -1031,6 +1132,7 @@ export function buildExtensions() {
       languageClassPrefix: "language-",
     }),
     Link.configure({ openOnClick: false, autolink: true }),
+    Image,
     TightTaskList,
     // nested: allow lists (incl. other task lists) inside a task item
     TaskItem.configure({ nested: true }),
@@ -1041,6 +1143,7 @@ export function buildExtensions() {
       transformPastedText: true,
       transformCopiedText: true,
     }),
+    ImageResolver,
     ...contributions.extensions,
   ];
 }
