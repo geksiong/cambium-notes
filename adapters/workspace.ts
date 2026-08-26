@@ -61,22 +61,25 @@ export async function readTree(
   depth = 6,
 ): Promise<FileEntry[]> {
   if (depth < 0) return [];
-  const out: FileEntry[] = [];
   let entries;
   try {
     entries = await Deno.readDir(guard(root, rel || "."));
   } catch {
     return [];
   }
+  // Collect this directory's own entries first, sort them, and only then
+  // append each entry's subtree. Sorting after recursion would interleave
+  // descendants and break the pre-order layout the Explorer relies on.
+  const dirs: FileEntry[] = [];
+  const files: FileEntry[] = [];
   for await (const e of entries) {
     if (SKIP_DIRS.has(e.name) || e.name.startsWith(".")) continue;
     const childRel = rel ? `${rel}/${e.name}` : e.name;
     if (e.isDirectory) {
-      out.push({ name: e.name, path: childRel, kind: "dir", mtime: 0 });
-      out.push(...await readTree(root, childRel, depth - 1));
+      dirs.push({ name: e.name, path: childRel, kind: "dir", mtime: 0 });
     } else if (e.isFile && /\.md$/i.test(e.name)) {
       const st = await Deno.stat(guard(root, childRel));
-      out.push({
+      files.push({
         name: e.name,
         path: childRel,
         kind: "file",
@@ -84,9 +87,15 @@ export async function readTree(
       });
     }
   }
-  out.sort((a, b) =>
-    a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === "dir" ? -1 : 1
-  );
+  const byName = (a: FileEntry, b: FileEntry) => a.name.localeCompare(b.name);
+  dirs.sort(byName);
+  files.sort(byName);
+  const out: FileEntry[] = [];
+  for (const d of dirs) {
+    out.push(d);
+    out.push(...await readTree(root, d.path, depth - 1));
+  }
+  out.push(...files);
   return out;
 }
 
