@@ -5,8 +5,12 @@ import type { AnyExtension } from "@tiptap/core";
 import { Plugin, PluginKey, Selection, TextSelection } from "@tiptap/pm/state";
 import { Markdown } from "tiptap-markdown";
 import { getCodeRenderer, registerCodeRenderer } from "./codeRenderers.ts";
-import { highlightDecorations } from "./highlight.ts";
-import { normalizeCodeLangSpec, parseCodeLangSpec } from "./langSpec.ts";
+import {
+  HL_REFRESH,
+  highlightDecorations,
+  setHighlightRefreshNotify,
+} from "./highlight.ts";
+import { parseFence, patchFenceRenderer } from "./fence.ts";
 import { BUILTIN_PLUGINS } from "../plugins/index.ts";
 
 /** Transaction meta key: focus the spec editor of the block at `pos`. */
@@ -166,16 +170,159 @@ function focusBottomFenceFromStart(
   return true;
 }
 
-/**
- * RenderableCodeBlock: the standard TipTap code block with
- * - syntax highlighting via lowlight decorations (see highlight.ts)
+/** RenderableCodeBlock: the standard TipTap code block with
+ * - syntax highlighting via Shiki decorations (see highlight.ts)
+ * - verbatim round-tripping of Expressive Code opening-fence info
+ *   (`ts {1, 4, 7-8} title="x.ts" ins={2} "text" /re/ wrap`) through the
+ *   markdown serializer and tiptap-markdown's markdown-it parser
  * - a NodeView that shows plugin-rendered output: below the source by
  *   default ("below" mode), or replacing it while not being edited
  *   ("inline" mode, e.g. ```mermaid). Double-click the language chip to
  *   change it; click an inline rendering — or arrow into it — to edit its
  *   source.
  */
-const RenderableCodeBlock = CodeBlock.extend({
+
+/**
+ * If `text` is exactly one fenced block (as our markdown clipboard
+ * serializer produces for any copied code-block fragment), return the
+ * inner lines — including their natural trailing newline — with the
+ * fences stripped. Otherwise null. Exported for headless tests.
+ */
+export function unwrapFencedClipboard(text: string): string | null {
+  const t = text.replace(/\r\n/g, "\n");
+  const firstNl = t.indexOf("\n");
+  if (firstNl === -1) return null;
+  if (!/^(`{3,}|~{3,})/.test(t.slice(0, firstNl))) return null;
+  // The last non-empty line must be a bare closing fence.
+  let lastLineStart = t.length;
+  let scanEnd = t.length;
+  for (;;) {
+    lastLineStart = t.lastIndexOf("\n", scanEnd - 2) + 1;
+    const line = t.slice(lastLineStart, scanEnd).trim();
+    if (line) {
+      if (!/^(`{3,}|~{3,})$/.test(line)) return null;
+      break;
+    }
+    if (lastLineStart === 0) return null;
+    scanEnd = lastLineStart; // skip trailing blank lines
+  }
+  return t.slice(firstNl + 1, lastLineStart);
+}
+
+/**
+ * Pasting inside a code block: when the clipboard carries our own
+ * fully-fenced markdown (copying any code-block fragment serializes that
+ * way), strip the fences and insert the plain lines instead of nesting
+ * literal ``` fences inside the block.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function codeBlockPastePlugin(blockTypeName: string): any {
+  return new Plugin({
+    key: new PluginKey("codeBlockPasteFix"),
+    props: {
+      handlePaste(view, event) {
+        const { state } = view;
+        const { $from, $to } = state.selection;
+        const nodeType = state.schema.nodes[blockTypeName];
+        if (
+          !nodeType || $from.parent.type !== nodeType ||
+          $to.parent !== $from.parent
+        ) {
+          return false;
+        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const text = (event as any).clipboardData?.getData?.("text/plain");
+        if (!text) return false;
+        const body = unwrapFencedClipboard(text);
+        if (body === null || !body.length) return false;
+
+        // Keep the pasted content on its own line(s).
+        let insert = body;
+        if (!insert.startsWith("\n")) {
+          const before = $from.parent.textBetween(
+            0,
+            $from.parentOffset,
+            undefined,
+            "\ufffc",
+          );
+          if (before && !before.endsWith("\n")) insert = `\n${insert}`;
+        }
+        view.dispatch(
+          state.tr.replaceSelectionWith(state.schema.text(insert))
+            .scrollIntoView(),
+        );
+        return true;
+      },
+    },
+  });
+}
+
+/**
+ * RenderableCodeBlock: the standard TipTap code block with
+ * - syntax highlighting via Shiki decorations (see highlight.ts)
+ * - verbatim round-tripping of Expressive Code opening-fence info
+ *   (`ts {1, 4, 7-8} title="x.ts" ins={2} "text" /re/ wrap`) through the
+ *   markdown serializer and tiptap-markdown's markdown-it parser
+ * - fence-aware clipboard handling (see codeBlockPastePlugin)
+ * - a NodeView that shows plugin-rendered output: below the source by
+ *   default ("below" mode), or replacing it while not being edited
+ *   ("inline" mode, e.g. ```mermaid). Double-click the language chip to
+ *   change it; click an inline rendering — or arrow into it — to edit its
+ *   source.
+ */
+// Exported for headless tests (tests/editorIntegration.test.ts).
+export const RenderableCodeBlock = CodeBlock.extend({
+  addAttributes() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parent = (this.parent?.() ?? {}) as Record<string, any>;
+    return {
+      ...parent,
+      language: {
+        ...parent.language,
+        default: null,
+        parseHTML(element: HTMLElement) {
+          const info = element.firstElementChild?.getAttribute("data-info");
+          if (info !== null && info !== undefined) {
+            const trimmed = info.trim();
+            if (trimmed) return trimmed;
+          }
+          // No data-info (indented code, foreign HTML): stock extraction.
+          return typeof parent.language?.parseHTML === "function"
+            ? parent.language.parseHTML(element)
+            : null;
+        },
+      },
+    };
+  },
+
+  addStorage() {
+    return {
+      markdown: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        serialize(state: any, node: any) {
+          state.write("```" + (node.attrs.language || "") + "\n");
+          state.text(node.textContent, false);
+          state.ensureNewLine();
+          state.write("```");
+          state.closeBlock(node);
+        },
+        parse: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setup(markdownit: any) {
+            markdownit.set({ langPrefix: "language-" });
+            patchFenceRenderer(markdownit);
+          },
+          updateDOM(element: HTMLElement) {
+            element.innerHTML = element.innerHTML.replace(
+              /\n<\/code><\/pre>/g,
+              "</code></pre>",
+            );
+          },
+        },
+      },
+    };
+  },
+
   addKeyboardShortcuts() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parent = (this.parent?.() ?? {}) as Record<string, any>;
@@ -203,7 +350,7 @@ const RenderableCodeBlock = CodeBlock.extend({
         state: {
           init: (_, { doc }) => highlightDecorations(doc, blockTypeName),
           apply: (tr, value) =>
-            tr.docChanged
+            tr.getMeta(HL_REFRESH) || tr.docChanged
               ? highlightDecorations(tr.doc, blockTypeName)
               : value.map(tr.mapping, tr.doc),
         },
@@ -212,12 +359,26 @@ const RenderableCodeBlock = CodeBlock.extend({
             return key.getState(state);
           },
         },
+        view(view) {
+          // Async language loads (and Shiki init) recompute decorations
+          // through this hook.
+          const unregister = setHighlightRefreshNotify(() =>
+            view.dispatch(view.state.tr.setMeta(HL_REFRESH, true))
+          );
+          return {
+            destroy() {
+              unregister();
+            },
+          };
+        },
       }),
       inlineNavPlugin(blockTypeName),
+      codeBlockPastePlugin(blockTypeName),
     ];
   },
 
   addNodeView() {
+    const blockTypeName = this.name;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return ({ node, editor, getPos }: any) => {
       const outer = document.createElement("div");
@@ -229,11 +390,15 @@ const RenderableCodeBlock = CodeBlock.extend({
       const chipLabel = document.createElement("span");
       chip.appendChild(chipLabel);
 
+      // Expressive Code `title="…"` (shown next to the language chip).
+      const titleEl = document.createElement("span");
+      titleEl.className = "cb-title";
+
       // Revealed fence lines: the opening one carries the editable spec.
       const fenceTop = document.createElement("div");
       fenceTop.className = "cb-fence";
       fenceTop.title =
-        "Fence — click to edit language/options (e.g. ts{1,3-5}); Esc/↓ back to code";
+        'Fence — click to edit language/options (e.g. ts {1,3-5} ins={2} title="x.ts"); Esc/↓ back to code';
       const btPrefix = document.createElement("span");
       btPrefix.textContent = "```";
       const specLabel = document.createElement("span");
@@ -242,6 +407,8 @@ const RenderableCodeBlock = CodeBlock.extend({
       specInput.type = "text";
       specInput.className = "cb-spec-input";
       specInput.spellcheck = false;
+      specInput.placeholder =
+        'lang {1,2-3} mark={} ins={} del={} "text" /regex/ title="…" wrap';
       fenceTop.append(btPrefix, specLabel, specInput);
 
       const fenceBottom = document.createElement("div");
@@ -258,6 +425,7 @@ const RenderableCodeBlock = CodeBlock.extend({
       preview.className = "cb-preview";
 
       outer.appendChild(chip);
+      outer.appendChild(titleEl);
       outer.appendChild(fenceTop);
       outer.appendChild(pre);
       outer.appendChild(fenceBottom);
@@ -326,12 +494,14 @@ const RenderableCodeBlock = CodeBlock.extend({
       };
 
       const syncMeta = () => {
-        chipLabel.textContent = (node.attrs.language as string | null) ??
-          "code";
-        const base = parseCodeLangSpec(
-          node.attrs.language as string | null,
-        ).lang;
-        codeEl.className = base ? `language-${base}` : "";
+        const raw = node.attrs.language as string | null;
+        const info = parseFence(raw);
+        chipLabel.textContent = info.lang ?? "code";
+        chip.title = raw || "Language / options";
+        codeEl.className = info.lang ? `language-${info.lang}` : "";
+        titleEl.textContent = info.title ?? "";
+        titleEl.style.display = info.title ? "" : "none";
+        outer.classList.toggle("cb-wrap--wrap", info.wrap);
       };
 
       const posInsideSelection = (): boolean => {
@@ -420,10 +590,12 @@ const RenderableCodeBlock = CodeBlock.extend({
         specLabel.textContent = (node.attrs.language as string | null) ?? "";
       };
 
-      /** Close + apply the edited spec; optionally move caret into code. */
+      /** Close + apply the edited spec; optionally move caret into code.
+       * The fence info is stored verbatim (trimmed) so Expressive Code
+       * meta round-trips losslessly. */
       const commitSpecEditor = (refocusCode = false) => {
         if (!specEditing) return;
-        const normalized = normalizeCodeLangSpec(specInput.value);
+        const normalized = specInput.value.trim();
         closeSpecEditor();
         const pos = typeof getPos === "function" ? getPos() : undefined;
         if (
@@ -433,7 +605,7 @@ const RenderableCodeBlock = CodeBlock.extend({
           editor.view.dispatch(
             editor.state.tr.setNodeMarkup(pos, undefined, {
               ...node.attrs,
-              language: normalized,
+              language: normalized.length ? normalized : null,
             }),
           );
         }
@@ -519,6 +691,11 @@ const RenderableCodeBlock = CodeBlock.extend({
        * Leave the block through its bottom/right side. At the very end
        * of the document nothing follows, and Selection.near would bounce
        * back into the code — create the line instead.
+       *
+       * When a code block directly follows (no blank line between), the
+       * forward selection lands inside its code — hand control to that
+       * block's opening-fence editor, exactly like inlineNavPlugin does
+       * when entering from an adjacent paragraph.
        */
       const exitBlockForward = () => {
         const pos = typeof getPos === "function" ? getPos() : undefined;
@@ -527,6 +704,16 @@ const RenderableCodeBlock = CodeBlock.extend({
         const sel = Selection.near(editor.state.doc.resolve(end), 1);
         if (sel.from < end) {
           newlineAfterBlock();
+          return;
+        }
+        if (sel.$from.parent.type.name === blockTypeName) {
+          editor.view.dispatch(
+            editor.state.tr
+              .setSelection(TextSelection.create(editor.state.doc, end + 1))
+              .setMeta(FENCE_FOCUS, { pos: end })
+              .scrollIntoView(),
+          );
+          editor.view.focus();
           return;
         }
         editor.view.dispatch(

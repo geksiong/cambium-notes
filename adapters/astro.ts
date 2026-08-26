@@ -66,17 +66,25 @@ const STARTER: StarterFile = {
         build: "astro build",
         preview: "astro preview",
       },
-      dependencies: { astro: "^5.1.1" },
+      dependencies: {
+        astro: "^5.1.1",
+        "astro-expressive-code": "^0.44.1",
+      },
     },
     null,
     2,
   ),
   "astro.config.mjs": `import { defineConfig } from 'astro/config';
+import expressiveCode from 'astro-expressive-code';
 
 // For GitHub Pages project sites set site + base, e.g.:
 //   site: 'https://<user>.github.io', base: '/<repo>'
 export default defineConfig({
   site: 'https://example.com',
+  // Renders fenced code blocks with Expressive Code — the same opening
+  // fence features (line/text markers, titles, wrap, themes) that the
+  // Cambium editor previews live.
+  integrations: [expressiveCode()],
 });
 `,
   "src/content.config.ts": `import { defineCollection, z } from 'astro:content';

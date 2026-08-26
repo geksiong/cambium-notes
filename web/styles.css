@@ -352,6 +352,9 @@ select:focus {
   border-radius: 8px;
   margin: 0.7em 0;
   overflow: hidden;
+  /* Keep the caret visible even when it sits inside a token span whose
+     syntax color has low contrast against the block background. */
+  caret-color: var(--fg);
 }
 .cb-wrap pre {
   margin: 0;
@@ -465,123 +468,123 @@ select:focus {
   border-color: var(--accent);
 }
 
-/* ---------- code syntax highlighting (highlight.js classes, lowlight) ---- */
-.prose-host .hljs-comment,
-.prose-host .hljs-quote {
+/* ------- code syntax highlighting (Shiki tokens + Expressive Code) -------- */
+/* Token colors live in runtime-generated ec-tok-* classes (highlight.ts):
+   dark rules on the base selector, light overrides below. */
+
+/* Full-line markers: mark / ins / del. Backgrounds only — the accent bar
+   is drawn by a per-line widget span (see .ec-accent-* below); painting it
+   here would repeat on every token-span fragment PM splits the line into. */
+.prose-host .ec-line-mark {
+  background: rgba(88, 166, 255, 0.14);
+}
+.prose-host .ec-line-ins {
+  background: rgba(63, 185, 80, 0.16);
+}
+.prose-host .ec-line-del {
+  background: rgba(248, 81, 73, 0.16);
+}
+:root[data-theme="light"] .prose-host .ec-line-mark {
+  background: rgba(9, 105, 218, 0.12);
+}
+:root[data-theme="light"] .prose-host .ec-line-ins {
+  background: rgba(26, 127, 55, 0.13);
+}
+:root[data-theme="light"] .prose-host .ec-line-del {
+  background: rgba(207, 34, 46, 0.13);
+}
+
+/* Left accent bars for full-line markers (one widget span per line). */
+.prose-host .ec-accent-mark,
+.prose-host .ec-accent-ins,
+.prose-host .ec-accent-del {
+  display: inline-block;
+  width: 2px;
+  height: 1.5em;
+  margin-right: 3px;
+  border-radius: 1px;
+  /* Center within the line box (code line-height is 1.5). */
+  vertical-align: -0.45em;
+}
+.prose-host .ec-accent-mark {
+  background: #58a6ff;
+}
+.prose-host .ec-accent-ins {
+  background: #3fb950;
+}
+.prose-host .ec-accent-del {
+  background: #f85149;
+}
+:root[data-theme="light"] .prose-host .ec-accent-mark {
+  background: #0969da;
+}
+:root[data-theme="light"] .prose-host .ec-accent-ins {
+  background: #1a7f37;
+}
+:root[data-theme="light"] .prose-host .ec-accent-del {
+  background: #cf222e;
+}
+
+/* Inline text/range markers ("search strings", /regex/, column ranges). */
+.prose-host .ec-inline-mark {
+  background: rgba(88, 166, 255, 0.22);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(88, 166, 255, 0.35);
+}
+.prose-host .ec-inline-ins {
+  background: rgba(63, 185, 80, 0.25);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(63, 185, 80, 0.45);
+}
+.prose-host .ec-inline-del {
+  background: rgba(248, 81, 73, 0.25);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(248, 81, 73, 0.45);
+}
+
+/* Marker labels: {"A":6-10} renders a small pill above the marked range. */
+.prose-host span[data-ec-label] {
+  position: relative;
+}
+.prose-host span[data-ec-label]::after {
+  content: attr(data-ec-label);
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 1px);
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  line-height: 1.5;
+  white-space: nowrap;
+  color: var(--fg);
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  pointer-events: none;
+}
+
+/* wrap flag on the opening fence */
+.cb-wrap.cb-wrap--wrap pre {
+  overflow-x: hidden;
+}
+.cb-wrap.cb-wrap--wrap code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Expressive Code title="…" caption — a real flow header above the code
+   (an overlay would obscure the first line). */
+.cb-title {
+  display: block;
+  padding: 3px 76px 3px 12px; /* right padding keeps clear of the chip */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.7rem;
   color: var(--fg-dim);
-  font-style: italic;
+  background: var(--bg-3);
+  border-bottom: 1px dashed var(--border);
+  user-select: none;
 }
-/* {1,3-5} line-option highlight */
-.prose-host .hl-line {
-  background: rgba(79, 156, 249, 0.16);
-  box-shadow: inset 2px 0 0 var(--accent);
-}
-:root[data-theme="light"] .prose-host .hl-line {
-  background: rgba(47, 124, 224, 0.14);
-}
-.prose-host .hljs-keyword,
-.prose-host .hljs-selector-tag,
-.prose-host .hljs-doctag,
-.prose-host .hljs-formula,
-.prose-host .hljs-meta .hljs-keyword {
-  color: #c792ea;
-}
-.prose-host .hljs-string,
-.prose-host .hljs-regexp,
-.prose-host .hljs-addition {
-  color: #98c379;
-}
-.prose-host .hljs-number,
-.prose-host .hljs-literal,
-.prose-host .hljs-symbol,
-.prose-host .hljs-bullet,
-.prose-host .hljs-link {
-  color: #f78c6c;
-}
-.prose-host .hljs-title,
-.prose-host .hljs-title.class_,
-.prose-host .hljs-title.function_,
-.prose-host .hljs-section,
-.prose-host .hljs-name {
-  color: #82aaff;
-}
-.prose-host .hljs-attr,
-.prose-host .hljs-attribute,
-.prose-host .hljs-variable,
-.prose-host .hljs-template-variable,
-.prose-host .hljs-params,
-.prose-host .hljs-property,
-.prose-host .hljs-built_in,
-.prose-host .hljs-selector-class,
-.prose-host .hljs-selector-id {
-  color: #ffcb6b;
-}
-.prose-host .hljs-type,
-.prose-host .hljs-class .hljs-title,
-.prose-host .hljs-selector-attr,
-.prose-host .hljs-selector-pseudo {
-  color: #4ec9b0;
-}
-.prose-host .hljs-tag,
-.prose-host .hljs-deletion {
-  color: #f07178;
-}
-.prose-host .hljs-emphasis {
-  font-style: italic;
-}
-.prose-host .hljs-strong {
-  font-weight: 700;
-}
-
-:root[data-theme="light"] .prose-host .hljs-keyword,
-:root[data-theme="light"] .prose-host .hljs-selector-tag,
-:root[data-theme="light"] .prose-host .hljs-doctag,
-:root[data-theme="light"] .prose-host .hljs-formula,
-:root[data-theme="light"] .prose-host .hljs-meta .hljs-keyword {
-  color: #8250df;
-}
-:root[data-theme="light"] .prose-host .hljs-string,
-:root[data-theme="light"] .prose-host .hljs-regexp,
-:root[data-theme="light"] .prose-host .hljs-addition {
-  color: #0a7d32;
-}
-:root[data-theme="light"] .prose-host .hljs-number,
-:root[data-theme="light"] .prose-host .hljs-literal,
-:root[data-theme="light"] .prose-host .hljs-symbol,
-:root[data-theme="light"] .prose-host .hljs-bullet,
-:root[data-theme="light"] .prose-host .hljs-link {
-  color: #b3541e;
-}
-:root[data-theme="light"] .prose-host .hljs-title,
-:root[data-theme="light"] .prose-host .hljs-title.class_,
-:root[data-theme="light"] .prose-host .hljs-title.function_,
-:root[data-theme="light"] .prose-host .hljs-section,
-:root[data-theme="light"] .prose-host .hljs-name {
-  color: #1f6feb;
-}
-:root[data-theme="light"] .prose-host .hljs-attr,
-:root[data-theme="light"] .prose-host .hljs-attribute,
-:root[data-theme="light"] .prose-host .hljs-variable,
-:root[data-theme="light"] .prose-host .hljs-template-variable,
-:root[data-theme="light"] .prose-host .hljs-params,
-:root[data-theme="light"] .prose-host .hljs-property,
-:root[data-theme="light"] .prose-host .hljs-built_in,
-:root[data-theme="light"] .prose-host .hljs-selector-class,
-:root[data-theme="light"] .prose-host .hljs-selector-id {
-  color: #953800;
-}
-:root[data-theme="light"] .prose-host .hljs-type,
-:root[data-theme="light"] .prose-host .hljs-class .hljs-title,
-:root[data-theme="light"] .prose-host .hljs-selector-attr,
-:root[data-theme="light"] .prose-host .hljs-selector-pseudo {
-  color: #0f766e;
-}
-:root[data-theme="light"] .prose-host .hljs-tag,
-:root[data-theme="light"] .prose-host .hljs-deletion {
-  color: #cf222e;
-}
-
-.editor-footer {
   display: flex;
   justify-content: space-between;
   padding: 5px 12px;
