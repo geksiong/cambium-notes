@@ -37,9 +37,11 @@ g.getSelection = () => win.window.getSelection?.() ?? null;
 const { Editor } = await import("@tiptap/core");
 const StarterKit = (await import("@tiptap/starter-kit")).default;
 const Link = (await import("@tiptap/extension-link")).default;
+const TaskItem = (await import("@tiptap/extension-task-item")).default;
 const { Markdown } = await import("tiptap-markdown");
 const {
   RenderableCodeBlock,
+  TightTaskList,
   getMarkdown,
 } = await import("../web/editor/extensions.ts");
 const {
@@ -52,9 +54,14 @@ function makeEditor(content = "") {
   return new Editor({
     element: null as unknown as HTMLElement,
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] }, codeBlock: false }),
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
+        codeBlock: false,
+      }),
       RenderableCodeBlock.configure({ languageClassPrefix: "language-" }),
       Link.configure({ openOnClick: false }),
+      TightTaskList,
+      TaskItem.configure({ nested: true }),
       Markdown.configure({ html: false, linkify: true, breaks: false }),
     ],
     content,
@@ -67,9 +74,14 @@ function makeAttachedEditor(content: string) {
   const editor = new Editor({
     element: host,
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] }, codeBlock: false }),
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
+        codeBlock: false,
+      }),
       RenderableCodeBlock.configure({ languageClassPrefix: "language-" }),
       Link.configure({ openOnClick: false }),
+      TightTaskList,
+      TaskItem.configure({ nested: true }),
       Markdown.configure({ html: false, linkify: true, breaks: false }),
     ],
     content,
@@ -111,6 +123,109 @@ Deno.test("plain fenced blocks stay plain (multi-line preserved)", () => {
     assertEquals(count, 1);
     assertEquals(text, "line one\nline two");
     assertEquals(getMarkdown(editor), "```\nline one\nline two\n```");
+  } finally {
+    editor.destroy();
+  }
+});
+
+Deno.test("checklists round-trip through the real parser/serializer", () => {
+  const md = "- [ ] todo one\n- [x] done one\n- [X] done two\n";
+  const editor = makeEditor(md);
+  try {
+    const checked: boolean[] = [];
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === "taskItem") checked.push(node.attrs.checked);
+      return true;
+    });
+    assertEquals(checked, [false, true, true]);
+    // Lowercase [x] in the output — canonical GFM form.
+    assertEquals(
+      getMarkdown(editor),
+      "- [ ] todo one\n- [x] done one\n- [x] done two",
+    );
+  } finally {
+    editor.destroy();
+  }
+});
+
+Deno.test("nested checklists round-trip", () => {
+  const md = "- [ ] parent\n  - [x] child A\n  - [ ] child B\n";
+  const editor = makeEditor(md);
+  try {
+    const checked: boolean[] = [];
+    let nestedListInsideItem = false;
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === "taskItem") {
+        checked.push(node.attrs.checked);
+        nestedListInsideItem ||= node.childCount > 1 &&
+          node.child(node.childCount - 1).type.name === "taskList";
+      }
+      return true;
+    });
+    assertEquals(checked, [false, true, false]);
+    assert(nestedListInsideItem);
+    assertEquals(
+      getMarkdown(editor),
+      "- [ ] parent\n  - [x] child A\n  - [ ] child B",
+    );
+  } finally {
+    editor.destroy();
+  }
+});
+
+Deno.test("bare empty checklist items survive save/reload", () => {
+  // "- [ ]" with nothing after is not recognized by markdown-it-task-lists;
+  // the editor pads bare checkboxes so an emptied item round-trips.
+  const md = "- [ ]\n- [x]\n- [ ] water\n";
+  const editor = makeEditor(md);
+  try {
+    const checked: boolean[] = [];
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === "taskItem") checked.push(node.attrs.checked);
+      return true;
+    });
+    assertEquals(checked, [false, true, false]);
+    assertEquals(getMarkdown(editor), "- [ ] \n- [x] \n- [ ] water");
+  } finally {
+    editor.destroy();
+  }
+});
+
+Deno.test("pasting checklist text keeps a single space after the checkbox", async () => {
+  const { editor, host } = makeAttachedEditor("");
+  try {
+    await new Promise((r) => setTimeout(r, 30));
+    editor.commands.focus();
+    const pasteEvent = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(pasteEvent, "clipboardData", {
+      value: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getData: (type: string) =>
+          type === "text/plain" ? "- [ ] pasted item" : "",
+      },
+    });
+    editor.view.dom.dispatchEvent(pasteEvent);
+    await new Promise((r) => setTimeout(r, 20));
+    const out = getMarkdown(editor);
+    assertEquals(out, "\\- \\[ \\] pasted item");
+  } finally {
+    host.remove();
+    editor.destroy();
+  }
+});
+
+Deno.test("toggleTaskList command produces checklist markdown", () => {
+  const editor = makeEditor("just a paragraph");
+  try {
+    editor.commands.setTextSelection(1);
+    editor.commands.toggleTaskList();
+    const checked: boolean[] = [];
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === "taskItem") checked.push(node.attrs.checked);
+      return true;
+    });
+    assertEquals(checked, [false]);
+    assertEquals(getMarkdown(editor), "- [ ] just a paragraph");
   } finally {
     editor.destroy();
   }
@@ -162,7 +277,9 @@ Deno.test("Shiki token decorations appear once languages load", async () => {
     }
     const tokenDecos = decoClasses.filter((c) => c.startsWith("ec-tok-"));
     if (!(tokenDecos.length > 0)) {
-      throw new Error(`no token decorations; got ${JSON.stringify(decoClasses)}`);
+      throw new Error(
+        `no token decorations; got ${JSON.stringify(decoClasses)}`,
+      );
     }
     assert(decoClasses.every((c) => !c.includes("hljs")));
   } finally {
@@ -199,7 +316,7 @@ Deno.test("injected token colors match app theme orientation", async () => {
       const { selectorText, style } = rule as any;
       const cls = /ec-tok-[0-9a-z]+/.exec(selectorText ?? "")?.[0];
       if (!cls || !style?.color) continue;
-      if ((selectorText as string).startsWith(":root[data-theme=\"light\"]")) {
+      if ((selectorText as string).startsWith(':root[data-theme="light"]')) {
         lightColors[cls] = String(style.color).toUpperCase();
       } else {
         baseColors[cls] = String(style.color).toUpperCase();
@@ -246,10 +363,9 @@ Deno.test("line markers render background + a SINGLE accent widget per line", as
 
 function luminance(hexColor: string): number {
   const hex = hexColor.replace("#", "");
-  const full =
-    hex.length === 3
-      ? hex.split("").map((c) => c + c).join("")
-      : hex.padEnd(6, "0").slice(0, 6);
+  const full = hex.length === 3
+    ? hex.split("").map((c) => c + c).join("")
+    : hex.padEnd(6, "0").slice(0, 6);
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16));
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 }
@@ -348,9 +464,7 @@ Deno.test("ArrowDown from closing fence opens the NEXT block's opening fence", a
     assert(focused !== null);
     assert(
       focused.classList.contains("cb-spec-input"),
-      `expected spec input focus, got <${focused.tagName}.${
-        focused.className
-      }>`,
+      `expected spec input focus, got <${focused.tagName}.${focused.className}>`,
     );
   } finally {
     host.remove();

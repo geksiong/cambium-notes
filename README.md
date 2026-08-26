@@ -20,6 +20,8 @@ webview, so the same app can later ship as a web app or Tauri binary (see
 
 - **WYSIWYG markdown editor** (TipTap/ProseMirror) that round-trips canonical
   markdown to disk, with debounced autosave and Ctrl/Cmd-S
+- **Checklists** — GFM task lists (`- [ ]` / `- [x]`) with clickable
+  checkboxes, nesting and a toolbar toggle
 - **Frontmatter support** — YAML header card above the document with tabbed
   form / raw-YAML editing; drives titles, drafts, tags, slugs and publishing
   metadata

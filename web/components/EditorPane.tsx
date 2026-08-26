@@ -144,6 +144,13 @@ function Toolbar({ editor }: { editor: any }) {
         editor.isActive("orderedList"),
       )}
       {btn(
+        "☑",
+        "Checklist",
+        () =>
+          editor.chain().focus().toggleTaskList().run(),
+        editor.isActive("taskList"),
+      )}
+      {btn(
         "❝",
         "Blockquote",
         () =>

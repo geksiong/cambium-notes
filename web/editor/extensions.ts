@@ -1,13 +1,16 @@
 import CodeBlock from "@tiptap/extension-code-block";
 import Link from "@tiptap/extension-link";
+import TaskItem from "@tiptap/extension-task-item";
+import TaskList from "@tiptap/extension-task-list";
 import StarterKit from "@tiptap/starter-kit";
 import type { AnyExtension } from "@tiptap/core";
 import { Plugin, PluginKey, Selection, TextSelection } from "@tiptap/pm/state";
 import { Markdown } from "tiptap-markdown";
+import taskListPlugin from "markdown-it-task-lists";
 import { getCodeRenderer, registerCodeRenderer } from "./codeRenderers.ts";
 import {
-  HL_REFRESH,
   highlightDecorations,
+  HL_REFRESH,
   setHighlightRefreshNotify,
 } from "./highlight.ts";
 import { parseFence, patchFenceRenderer } from "./fence.ts";
@@ -912,6 +915,91 @@ export interface PluginContribution {
   toolbar: { id: string; label: string; run(): void }[];
 }
 
+/**
+ * TaskList plus an explicit `tight` attribute: prosemirror-markdown only
+ * emits compact `- [ ]` lines when the list node carries tight=true, and
+ * tiptap-markdown's tight-list handling doesn't cover taskList nodes.
+ *
+ * The markdown parse spec is owned here (replacing tiptap-markdown's
+ * bundled one) so two gaps in markdown-it-task-lists can be closed:
+ *   - bare checkboxes ("- [ ]" with nothing after) are not recognized —
+ *     pad them so save/reload of an emptied item round-trips;
+ *   - todoify leaves the separator space in the following text node,
+ *     which surfaces as a double space after pasting checklist text.
+ */
+export const TightTaskList = TaskList.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      tight: {
+        default: true,
+        parseHTML: (element) =>
+          element.getAttribute("data-tight") === "true" ||
+          !element.querySelector("p"),
+        renderHTML: (attributes) => ({
+          "data-tight": attributes.tight ? "true" : null,
+        }),
+      },
+    };
+  },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  addStorage() {
+    return {
+      markdown: {
+        parse: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setup(markdownit: any) {
+            markdownit.use(taskListPlugin);
+            markdownit.core.ruler.before(
+              "github-task-lists",
+              "cambium-pad-bare-checkbox",
+              (state: any) => {
+                for (const token of state.tokens) {
+                  const first = token.type === "inline"
+                    ? token.children?.[0]
+                    : null;
+                  if (first?.type === "text" && /^\[[xX ]\]$/.test(first.content)) {
+                    first.content += " ";
+                    token.content += " ";
+                  }
+                }
+              },
+            );
+            markdownit.core.ruler.after(
+              "github-task-lists",
+              "cambium-trim-checkbox-space",
+              (state: any) => {
+                for (const token of state.tokens) {
+                  const children = token.children;
+                  if (!children?.length) continue;
+                  for (let i = 0; i < children.length - 1; i++) {
+                    if (
+                      children[i].type === "html_inline" &&
+                      children[i].content.startsWith("<input")
+                    ) {
+                      const next = children[i + 1];
+                      if (next.type === "text" && next.content.startsWith(" ")) {
+                        next.content = next.content.slice(1);
+                      }
+                    }
+                  }
+                }
+              },
+            );
+          },
+          updateDOM(element: Element) {
+            [...element.querySelectorAll(".contains-task-list")].forEach(
+              (list) => {
+                list.setAttribute("data-type", "taskList");
+              },
+            );
+          },
+        },
+      },
+    };
+  },
+});
+
 /** Runs all builtin plugins and returns their contributions. */
 function loadPlugins(): PluginContribution {
   const acc: PluginContribution = { extensions: [], toolbar: [] };
@@ -943,6 +1031,9 @@ export function buildExtensions() {
       languageClassPrefix: "language-",
     }),
     Link.configure({ openOnClick: false, autolink: true }),
+    TightTaskList,
+    // nested: allow lists (incl. other task lists) inside a task item
+    TaskItem.configure({ nested: true }),
     Markdown.configure({
       html: false,
       linkify: true,

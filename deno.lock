@@ -9,6 +9,8 @@
     "npm:@tiptap/core@^2.11.0": "2.27.2_@tiptap+pm@2.27.2",
     "npm:@tiptap/extension-code-block@^2.11.0": "2.27.2_@tiptap+core@2.27.2__@tiptap+pm@2.27.2_@tiptap+pm@2.27.2",
     "npm:@tiptap/extension-link@^2.11.0": "2.27.2_@tiptap+core@2.27.2__@tiptap+pm@2.27.2_@tiptap+pm@2.27.2",
+    "npm:@tiptap/extension-task-item@^2.11.0": "2.27.2_@tiptap+core@2.27.2__@tiptap+pm@2.27.2_@tiptap+pm@2.27.2",
+    "npm:@tiptap/extension-task-list@^2.11.0": "2.27.2_@tiptap+core@2.27.2__@tiptap+pm@2.27.2",
     "npm:@tiptap/pm@^2.11.0": "2.27.2",
     "npm:@tiptap/react@^2.11.0": "2.27.2_@tiptap+core@2.27.2__@tiptap+pm@2.27.2_@tiptap+pm@2.27.2_react@18.3.1_react-dom@18.3.1__react@18.3.1",
     "npm:@tiptap/starter-kit@^2.11.0": "2.27.2",
@@ -19,6 +21,7 @@
     "npm:graphology-layout-forceatlas2@~0.10.1": "0.10.1_graphology-types@0.24.8",
     "npm:graphology@~0.25.4": "0.25.4_graphology-types@0.24.8",
     "npm:happy-dom@^20.11.6": "20.11.6",
+    "npm:markdown-it-task-lists@^2.1.1": "2.1.1",
     "npm:markdown-it@^14.1.0": "14.3.0",
     "npm:mermaid@^11.4.1": "11.16.0",
     "npm:react-dom@^18.3.1": "18.3.1_react@18.3.1",
@@ -28,6 +31,7 @@
     "npm:tiptap-markdown@~0.8.10": "0.8.10_@tiptap+core@2.27.2__@tiptap+pm@2.27.2_@tiptap+pm@2.27.2",
     "npm:vite@*": "5.4.21",
     "npm:vite@^5.4.11": "5.4.21",
+    "npm:ws@8": "8.21.3",
     "npm:yaml@^2.5.1": "2.9.0",
     "npm:zustand@^4.5.5": "4.5.7_@types+react@18.3.31_react@18.3.1"
   },
@@ -530,6 +534,19 @@
     },
     "@tiptap/extension-strike@2.27.2_@tiptap+core@2.27.2__@tiptap+pm@2.27.2_@tiptap+pm@2.27.2": {
       "integrity": "sha512-HHIjhafLhS2lHgfAsCwC1okqMsQzR4/mkGDm4M583Yftyjri1TNA7lzhzXWRFWiiMfJxKtdjHjUAQaHuteRTZw==",
+      "dependencies": [
+        "@tiptap/core"
+      ]
+    },
+    "@tiptap/extension-task-item@2.27.2_@tiptap+core@2.27.2__@tiptap+pm@2.27.2_@tiptap+pm@2.27.2": {
+      "integrity": "sha512-ZBSqj/dygB/Rp5K9qOxRVwASTZCmKVoTq8C59KvMgD/aFjJxhq/w2dZaWkCUEXEep+NmvJqo0kfeAEMY5UDnGg==",
+      "dependencies": [
+        "@tiptap/core",
+        "@tiptap/pm"
+      ]
+    },
+    "@tiptap/extension-task-list@2.27.2_@tiptap+core@2.27.2__@tiptap+pm@2.27.2": {
+      "integrity": "sha512-5nupAewdzZ9F3599oAcaK0WkDH04wdACAVBPM4zG7InlIpkbho3txB7zWmm64OxfhCMIMGKiXY1q0bw9i0QBGQ==",
       "dependencies": [
         "@tiptap/core"
       ]
@@ -2004,6 +2021,8 @@
       "npm:@tiptap/core@^2.11.0",
       "npm:@tiptap/extension-code-block@^2.11.0",
       "npm:@tiptap/extension-link@^2.11.0",
+      "npm:@tiptap/extension-task-item@^2.11.0",
+      "npm:@tiptap/extension-task-list@^2.11.0",
       "npm:@tiptap/pm@^2.11.0",
       "npm:@tiptap/react@^2.11.0",
       "npm:@tiptap/starter-kit@^2.11.0",
@@ -2012,6 +2031,7 @@
       "npm:abcjs@^6.4.4",
       "npm:graphology-layout-forceatlas2@~0.10.1",
       "npm:graphology@~0.25.4",
+      "npm:markdown-it-task-lists@^2.1.1",
       "npm:markdown-it@^14.1.0",
       "npm:mermaid@^11.4.1",
       "npm:react-dom@^18.3.1",
