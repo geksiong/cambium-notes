@@ -29,6 +29,7 @@ export const abcPlugin: CambiumPlugin = {
         .then(({ default: abcjs }) => {
           if (cancelled) return;
           container.innerHTML = "";
+          container.classList.add("cb-abc");
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const api = abcjs as any;
           api.renderAbc(container, code, {

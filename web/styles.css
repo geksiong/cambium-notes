@@ -431,6 +431,11 @@ select:focus {
 }
 .cb-preview {
   border-top: 1px dashed var(--border);
+  /* Rendered output targets a dark canvas in dark mode; light mode keeps
+     the white paper most renderers (mermaid default/forest) assume. */
+  background: var(--bg-2);
+}
+:root[data-theme="light"] .cb-preview {
   background: #fff;
 }
 .cb-preview svg {
@@ -440,7 +445,7 @@ select:focus {
 }
 .cb-preview.cb-error {
   color: var(--danger);
-  background: #fff;
+  background: inherit;
   padding: 10px 14px;
   font-size: 0.84rem;
 }
@@ -463,6 +468,11 @@ select:focus {
 }
 .cb-preview.cb-mermaid {
   padding: 8px;
+}
+/* abcjs draws with fill="currentColor", so the score follows the app ink. */
+.cb-preview.cb-abc {
+  color: var(--fg);
+  padding: 4px 8px;
 }
 .cb-wrap.cb-inline:not(.cb-editing):hover {
   border-color: var(--accent);
