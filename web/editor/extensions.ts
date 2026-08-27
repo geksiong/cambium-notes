@@ -5,12 +5,81 @@ import TaskList from "@tiptap/extension-task-list";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 
-/** Image node with a hover-zoom button that dispatches `cambium:image-zoom`. */
-const ZoomableImage = Image.extend({
+/** Parse `![alt](url "title")` — returns null if text doesn't match. */
+function parseImageMd(
+  text: string,
+): { src: string; alt: string; title: string } | null {
+  const m = text.trim().match(/^!\[([^\]]*)\]\(([^)\s]*)((?:\s+"[^"]*")?)\)$/);
+  if (!m) return null;
+  return {
+    alt: m[1],
+    src: m[2],
+    title: m[3] ? m[3].trim().slice(1, -1) : "",
+  };
+}
+
+/**
+ * Image node with hover-zoom button and inline markdown editing.
+ *
+ * Click or arrow-navigate onto the image → shows the raw markdown source
+ * (`![alt](src "title")`) as an editable inline text span. Moving the
+ * cursor away commits the edits and re-renders the image.
+ */
+const EditableImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      markdown: { default: null },
+    };
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: "img[src]",
+        getAttrs(element: HTMLElement) {
+          const mdSrc = element.getAttribute("data-md-src");
+          return {
+            src: element.getAttribute("src"),
+            alt: element.getAttribute("alt"),
+            title: element.getAttribute("title"),
+            markdown: mdSrc || null,
+          };
+        },
+      },
+    ];
+  },
+
+  addStorage() {
+    return {
+      markdown: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        serialize(state: any, node: any) {
+          const md = node.attrs.markdown as string | null;
+          if (md) {
+            state.write(md);
+          } else {
+            const src = (node.attrs.src as string) || "";
+            const alt = (node.attrs.alt as string) || "";
+            const title = (node.attrs.title as string) || "";
+            state.write(
+              title
+                ? `![${state.esc(alt)}](${src} "${title}")`
+                : `![${state.esc(alt)}](${src})`,
+            );
+          }
+        },
+      },
+    };
+  },
+
   addNodeView() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return ({ node }: any) => {
-      let current = node;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return ({ node, editor, getPos }: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let current: any = node;
+      let editing = false;
+
       const wrap = document.createElement("span");
       wrap.className = "img-wrap";
 
@@ -38,16 +107,180 @@ const ZoomableImage = Image.extend({
       });
       wrap.appendChild(btn);
 
+      const editableSpan = document.createElement("span");
+      editableSpan.className = "img-edit-inline";
+      editableSpan.contentEditable = "true";
+      editableSpan.spellcheck = false;
+      editableSpan.style.display = "none";
+      wrap.appendChild(editableSpan);
+
+      const markdownText = () =>
+        (current.attrs.markdown as string | null) ?? imageToMarkdown();
+
+      const imageToMarkdown = () => {
+        const src = (current.attrs.src as string) || "";
+        const alt = (current.attrs.alt as string) || "";
+        const title = (current.attrs.title as string) || "";
+        return title
+          ? `![${alt}](${src} "${title}")`
+          : `![${alt}](${src})`;
+      };
+
+      const startEditing = () => {
+        if (editing) return;
+        editing = true;
+        editableSpan.textContent = markdownText();
+        img.style.display = "none";
+        btn.style.display = "none";
+        editableSpan.style.display = "";
+        wrap.classList.add("img-editing");
+        setTimeout(() => {
+          if (!editing) return;
+          editableSpan.focus();
+          const range = document.createRange();
+          range.selectNodeContents(editableSpan);
+          range.collapse(false);
+          const sel = window.getSelection();
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        }, 0);
+      };
+
+      const commitAndExit = (moveDir?: 1 | -1) => {
+        if (!editing) return;
+        editing = false;
+        editableSpan.style.display = "none";
+        img.style.display = "";
+        btn.style.display = "";
+        wrap.classList.remove("img-editing");
+
+        const text = editableSpan.textContent || "";
+        const pos = typeof getPos === "function" ? getPos() : undefined;
+        if (typeof pos !== "number") return;
+
+        const parsed = parseImageMd(text);
+        if (parsed && parsed.src) {
+          const resolvedSrc = imageResolveCtx.collectionId &&
+              imageResolveCtx.notePath
+            ? resolveImageUrl(
+              parsed.src,
+              imageResolveCtx.collectionId,
+              imageResolveCtx.notePath,
+            )
+            : parsed.src;
+          const attrs = {
+            src: resolvedSrc,
+            alt: parsed.alt,
+            title: parsed.title || null,
+            markdown: text,
+          };
+          current = { ...current, attrs: { ...current.attrs, ...attrs } };
+          const tr = editor.state.tr.setNodeMarkup(pos, undefined, attrs);
+          // Always move cursor outside the image to prevent onTransaction re-entry
+          const near = Selection.near(
+            editor.state.doc.resolve(pos + current.nodeSize),
+            typeof moveDir === "number" ? moveDir : 1,
+          );
+          tr.setSelection(near);
+          editor.view.dispatch(tr);
+          editor.view.focus();
+        } else {
+          editor.view.dispatch(
+            editor.state.tr.delete(pos, pos + current.nodeSize),
+          );
+          editor.view.focus();
+        }
+      };
+
+      // -- prevent all events on the span from reaching ProseMirror --
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const ev of [
+        "mousedown", "mouseup", "click", "dblclick",
+        "keydown", "keyup", "keypress",
+        "beforeinput", "input",
+        "compositionstart", "compositionupdate", "compositionend",
+        "paste", "copy", "cut",
+      ] as const) {
+        editableSpan.addEventListener(ev, (e) => e.stopPropagation());
+      }
+
+      editableSpan.addEventListener("keydown", (e) => {
+        const text = editableSpan.textContent || "";
+        const sel = window.getSelection();
+        const atStart = !sel || sel.focusOffset === 0;
+        const atEnd = !sel || sel.focusOffset >= text.length;
+
+        if (e.key === "Escape") {
+          e.preventDefault();
+          commitAndExit();
+          return;
+        }
+        if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+          if (atEnd) {
+            e.preventDefault();
+            commitAndExit(1);
+          }
+          return;
+        }
+        if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+          if (atStart) {
+            e.preventDefault();
+            commitAndExit(-1);
+          }
+          return;
+        }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commitAndExit();
+        }
+      });
+
+      // -- commit when clicking outside the image (capture phase) --
+      const onDocMouseDown = (e: MouseEvent) => {
+        if (!editing) return;
+        if (
+          e.target instanceof globalThis.Node && wrap.contains(e.target)
+        ) return;
+        commitAndExit();
+      };
+      document.addEventListener("mousedown", onDocMouseDown, true);
+
+      // -- click image → start editing --
+      wrap.addEventListener("click", (e) => {
+        if (e.target === img || e.target === wrap) {
+          if (!editing) {
+            e.preventDefault();
+            startEditing();
+          }
+        }
+      });
+
+      // -- selection tracking: exit edit mode when cursor leaves --
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const onTransaction = ({ transaction }: any) => {
+        const pos = typeof getPos === "function" ? getPos() : undefined;
+        if (typeof pos !== "number") return;
+        const inside =
+          transaction.selection.from >= pos &&
+          transaction.selection.to <= pos + current.nodeSize;
+        if (!inside && editing) commitAndExit();
+      };
+      editor.on("transaction", onTransaction);
+
       return {
         dom: wrap,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         update(updated: any) {
           if (updated.type.name !== current.type.name) return false;
           current = updated;
-          img.src = updated.attrs.src as string;
-          img.alt = (updated.attrs.alt as string) ?? "";
-          img.title = (updated.attrs.title as string) ?? "";
+          img.src = current.attrs.src as string;
+          img.alt = (current.attrs.alt as string) ?? "";
+          img.title = (current.attrs.title as string) ?? "";
           return true;
+        },
+        destroy() {
+          editor.off("transaction", onTransaction);
+          document.removeEventListener("mousedown", onDocMouseDown, true);
         },
       };
     };
@@ -140,6 +373,8 @@ const ImageResolver = Extension.create({
             ) => {
               const token = tokens[idx];
               const src = token.attrGet("src");
+              // Preserve original src as data attribute for updateDOM.
+              if (src) token.attrSet("data-md-src", src);
               if (
                 src && imageResolveCtx.collectionId && imageResolveCtx.notePath
               ) {
@@ -155,6 +390,19 @@ const ImageResolver = Extension.create({
               }
               return self.renderToken(tokens, idx, options);
             };
+          },
+          updateDOM(element: HTMLElement) {
+            for (const img of element.querySelectorAll("img")) {
+              const mdSrc = img.getAttribute("data-md-src");
+              if (mdSrc) {
+                const alt = img.getAttribute("alt") || "";
+                const title = img.getAttribute("title") || "";
+                const md = title
+                  ? `![${alt}](${mdSrc} "${title}")`
+                  : `![${alt}](${mdSrc})`;
+                img.setAttribute("data-md-src", md);
+              }
+            }
           },
         },
       },
@@ -1181,7 +1429,7 @@ export function buildExtensions() {
       languageClassPrefix: "language-",
     }),
     Link.configure({ openOnClick: false, autolink: true }),
-    ZoomableImage,
+    EditableImage,
     TightTaskList,
     // nested: allow lists (incl. other task lists) inside a task item
     TaskItem.configure({ nested: true }),

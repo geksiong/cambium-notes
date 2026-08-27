@@ -432,6 +432,38 @@ select:focus {
   border-color: var(--accent);
 }
 
+/* -- image inline edit mode -- */
+.img-wrap.img-editing {
+  position: relative;
+  display: inline-block;
+  min-width: 80px;
+  min-height: 1.6em;
+  vertical-align: bottom;
+}
+.img-wrap.img-editing > img {
+  opacity: 0.15;
+  pointer-events: none;
+}
+.img-edit-inline {
+  display: inline;
+  font-family: ui-monospace, monospace;
+  font-size: 0.88em;
+  line-height: 1.5;
+  color: var(--fg);
+  background: var(--bg-2);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  padding: 1px 5px;
+  outline: none;
+  white-space: nowrap;
+  cursor: text;
+  min-width: 2em;
+}
+.img-edit-inline:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
 /* ---------- image zoom modal ---------- */
 .img-modal-backdrop {
   position: fixed;
