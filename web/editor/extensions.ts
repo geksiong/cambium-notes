@@ -18,6 +18,25 @@ function parseImageMd(
   };
 }
 
+const imageSizeCache = new Map<string, Promise<number | null>>();
+
+/**
+ * Fetch the actual byte size of an image by downloading its body and
+ * measuring it. The backend streams files without a Content-Length header,
+ * so HEAD/Content-Length is unreliable. The result is cached per-URL.
+ */
+export function fetchImageSize(src: string): Promise<number | null> {
+  if (!src) return Promise.resolve(null);
+  const cached = imageSizeCache.get(src);
+  if (cached) return cached;
+  const p = fetch(src)
+    .then((r) => r.blob())
+    .then((blob) => blob.size)
+    .catch(() => null);
+  imageSizeCache.set(src, p);
+  return p;
+}
+
 /**
  * Image node with hover-zoom button and inline markdown editing.
  *
@@ -78,6 +97,21 @@ const EditableImage = Image.extend({
       return ({ node, editor, getPos }: any) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let current: any = node;
+      const currentInfo = () => {
+        const md = (current.attrs.markdown as string | null) ?? (() => {
+          const src = (current.attrs.src as string) || "";
+          const alt = (current.attrs.alt as string) || "";
+          const title = (current.attrs.title as string) || "";
+          return title
+            ? `![${alt}](${src} "${title}")`
+            : `![${alt}](${src})`;
+        })();
+        const parsed = parseImageMd(md);
+        return {
+          link: parsed?.src ?? (current.attrs.src as string) ?? "",
+          alt: parsed?.alt ?? (current.attrs.alt as string) ?? "",
+        };
+      };
       let editing = false;
       let ready = false;
       setTimeout(() => { ready = true; }, 0);
@@ -103,6 +137,7 @@ const EditableImage = Image.extend({
             detail: {
               src: current.attrs.src as string,
               alt: (current.attrs.alt as string) ?? "",
+              link: currentInfo().link,
             },
           }),
         );
@@ -115,6 +150,60 @@ const EditableImage = Image.extend({
       editableSpan.spellcheck = false;
       editableSpan.style.display = "none";
       wrap.appendChild(editableSpan);
+
+      // -- hover info overlay: dimensions, filesize, alt, link --
+      const overlay = document.createElement("div");
+      overlay.className = "img-info-overlay";
+
+      const addLine = (label: string) => {
+        const line = document.createElement("div");
+        line.className = "img-info-line";
+        const lb = document.createElement("span");
+        lb.className = "img-info-label";
+        lb.textContent = label;
+        const val = document.createElement("span");
+        val.className = "img-info-value";
+        line.appendChild(lb);
+        line.appendChild(val);
+        overlay.appendChild(line);
+        return val;
+      };
+
+      const dimVal = addLine("Dimensions");
+      const sizeVal = addLine("Size");
+      const altVal = addLine("Alt");
+      const linkVal = addLine("Link");
+
+      wrap.appendChild(overlay);
+
+      const formatBytes = (b: number) => {
+        if (b < 1024) return `${b} B`;
+        if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+        return `${(b / (1024 * 1024)).toFixed(2)} MB`;
+      };
+
+      const refreshOverlay = () => {
+        const { link, alt } = currentInfo();
+        altVal.textContent = alt || "—";
+        linkVal.textContent = link || "—";
+        linkVal.title = link;
+      };
+
+      img.addEventListener("load", () => {
+        if (img.naturalWidth && img.naturalHeight) {
+          dimVal.textContent = `${img.naturalWidth} × ${img.naturalHeight} px`;
+        } else {
+          dimVal.textContent = "—";
+        }
+        const src = (current.attrs.src as string) || "";
+        if (src) {
+          fetchImageSize(src).then((size) => {
+            if (size) sizeVal.textContent = formatBytes(size);
+          });
+        }
+      });
+
+      refreshOverlay();
 
       const markdownText = () =>
         (current.attrs.markdown as string | null) ?? imageToMarkdown();
@@ -304,6 +393,7 @@ const EditableImage = Image.extend({
           img.src = current.attrs.src as string;
           img.alt = (current.attrs.alt as string) ?? "";
           img.title = (current.attrs.title as string) ?? "";
+          refreshOverlay();
           return true;
         },
         destroy() {

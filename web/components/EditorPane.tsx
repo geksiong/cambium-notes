@@ -41,14 +41,20 @@ export function EditorPane() {
     };
   }, [editor]);
 
-  const [zoomImg, setZoomImg] = useState<{ src: string; alt: string } | null>(
-    null,
-  );
+  const [zoomImg, setZoomImg] = useState<{
+    src: string;
+    alt: string;
+    link?: string;
+  } | null>(null);
 
   useEffect(() => {
     const onZoom = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { src: string; alt: string };
-      setZoomImg({ src: detail.src, alt: detail.alt });
+      const detail = (e as CustomEvent).detail as {
+        src: string;
+        alt: string;
+        link?: string;
+      };
+      setZoomImg({ src: detail.src, alt: detail.alt, link: detail.link });
     };
     window.addEventListener("cambium:image-zoom", onZoom);
     return () => window.removeEventListener("cambium:image-zoom", onZoom);
@@ -105,6 +111,7 @@ export function EditorPane() {
         <ImageModal
           src={zoomImg.src}
           alt={zoomImg.alt}
+          link={zoomImg.link}
           onClose={() => setZoomImg(null)}
         />
       )}

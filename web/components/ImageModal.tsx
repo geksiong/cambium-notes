@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { fetchImageSize } from "../editor/extensions.ts";
 
 interface ImageModalProps {
   src: string;
   alt?: string;
+  link?: string;
   onClose: () => void;
 }
 
@@ -10,7 +12,7 @@ const ZOOM_MIN = 0.1;
 const ZOOM_MAX = 10;
 const ZOOM_STEP = 0.25;
 
-export function ImageModal({ src, alt, onClose }: ImageModalProps) {
+export function ImageModal({ src, alt, link, onClose }: ImageModalProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -25,6 +27,11 @@ export function ImageModal({ src, alt, onClose }: ImageModalProps) {
   >(null);
   const [loaded, setLoaded] = useState(false);
   const fitRef = useRef(false);
+  const [info, setInfo] = useState<{
+    width?: number;
+    height?: number;
+    size?: number;
+  }>({});
 
   const fitToViewport = useCallback(() => {
     const vp = viewportRef.current;
@@ -45,6 +52,25 @@ export function ImageModal({ src, alt, onClose }: ImageModalProps) {
   useEffect(() => {
     if (loaded && !fitRef.current) fitToViewport();
   }, [loaded, fitToViewport]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchImageSize(src).then((size) => {
+      if (!cancelled && size) {
+        setInfo((prev) => ({ ...prev, size }));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [src]);
+
+  const formatBytes = (b?: number) => {
+    if (!b) return "—";
+    if (b < 1024) return `${b} B`;
+    if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+    return `${(b / (1024 * 1024)).toFixed(2)} MB`;
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -152,7 +178,15 @@ export function ImageModal({ src, alt, onClose }: ImageModalProps) {
           1:1
         </button>
         <div className="spacer" />
-        {alt && <span className="muted small">{alt}</span>}
+        <span className="img-modal-meta" title={link}>
+          {info.width && info.height
+            ? `${info.width} × ${info.height} px`
+            : "—"}
+          {" · "}
+          {formatBytes(info.size)}
+          {alt ? ` · alt: ${alt}` : ""}
+          {link ? ` · ${link}` : ""}
+        </span>
         <div className="spacer" />
         <button onClick={onClose}>Close</button>
       </div>
@@ -177,7 +211,15 @@ export function ImageModal({ src, alt, onClose }: ImageModalProps) {
                 transform: `translate(${pos.x}px, ${pos.y}px) scale(${zoom})`,
               }
             : undefined}
-          onLoad={() => setLoaded(true)}
+          onLoad={(e) => {
+            setLoaded(true);
+            const el = e.currentTarget;
+            setInfo((prev) => ({
+              ...prev,
+              width: el.naturalWidth,
+              height: el.naturalHeight,
+            }));
+          }}
           draggable={false}
         />
       </div>

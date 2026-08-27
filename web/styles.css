@@ -432,6 +432,46 @@ select:focus {
   border-color: var(--accent);
 }
 
+/* -- image hover info overlay -- */
+.img-info-overlay {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  max-width: calc(100% - 16px);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.img-wrap:hover .img-info-overlay {
+  opacity: 1;
+}
+.img-wrap.img-editing .img-info-overlay {
+  display: none;
+}
+.img-info-line {
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+.img-info-label {
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+.img-info-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
 /* -- image inline edit mode -- */
 .img-wrap.img-editing {
   position: relative;
@@ -489,6 +529,15 @@ select:focus {
 .img-modal-toolbar button {
   padding: 4px 10px;
   font-size: 0.85rem;
+}
+.img-modal-meta {
+  font-size: 0.8rem;
+  color: var(--fg);
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 40vw;
 }
 .img-modal-viewport {
   flex: 1;
