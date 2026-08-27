@@ -79,6 +79,8 @@ const EditableImage = Image.extend({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let current: any = node;
       let editing = false;
+      let ready = false;
+      setTimeout(() => { ready = true; }, 0);
 
       const wrap = document.createElement("span");
       wrap.className = "img-wrap";
@@ -146,8 +148,8 @@ const EditableImage = Image.extend({
         }, 0);
       };
 
-      const commitAndExit = (moveDir?: 1 | -1) => {
-        if (!editing) return;
+      const commitNode = (): boolean => {
+        if (!editing) return false;
         editing = false;
         editableSpan.style.display = "none";
         img.style.display = "";
@@ -156,10 +158,11 @@ const EditableImage = Image.extend({
 
         const text = editableSpan.textContent || "";
         const pos = typeof getPos === "function" ? getPos() : undefined;
-        if (typeof pos !== "number") return;
+        if (typeof pos !== "number") return false;
 
         const parsed = parseImageMd(text);
         if (parsed && parsed.src) {
+          const nodeSize = current.nodeSize;
           const resolvedSrc = imageResolveCtx.collectionId &&
               imageResolveCtx.notePath
             ? resolveImageUrl(
@@ -175,21 +178,38 @@ const EditableImage = Image.extend({
             markdown: text,
           };
           current = { ...current, attrs: { ...current.attrs, ...attrs } };
-          const tr = editor.state.tr.setNodeMarkup(pos, undefined, attrs);
-          // Always move cursor outside the image to prevent onTransaction re-entry
-          const near = Selection.near(
-            editor.state.doc.resolve(pos + current.nodeSize),
-            typeof moveDir === "number" ? moveDir : 1,
-          );
-          tr.setSelection(near);
+          current.nodeSize = nodeSize;
+          const tr = editor.state.tr
+            .setMeta("imageCommit", true)
+            .setNodeMarkup(pos, undefined, attrs);
           editor.view.dispatch(tr);
-          editor.view.focus();
-        } else {
-          editor.view.dispatch(
-            editor.state.tr.delete(pos, pos + current.nodeSize),
-          );
-          editor.view.focus();
+          return true;
         }
+        const nodeSize = current.nodeSize;
+        editor.view.dispatch(
+          editor.state.tr
+            .setMeta("imageCommit", true)
+            .delete(pos, pos + nodeSize),
+        );
+        return true;
+      };
+
+      const commitAndExit = (moveDir?: 1 | -1) => {
+        if (!editing) return;
+        const pos = typeof getPos === "function" ? getPos() : undefined;
+        const nodeSize = current.nodeSize;
+        const committed = commitNode();
+        if (!committed || typeof pos !== "number") return;
+        const near = Selection.near(
+          editor.state.doc.resolve(pos + nodeSize),
+          typeof moveDir === "number" ? moveDir : 1,
+        );
+        editor.view.dispatch(
+          editor.state.tr
+            .setMeta("imageCommit", true)
+            .setSelection(near),
+        );
+        editor.view.focus();
       };
 
       // -- prevent all events on the span from reaching ProseMirror --
@@ -255,15 +275,23 @@ const EditableImage = Image.extend({
         }
       });
 
-      // -- selection tracking: exit edit mode when cursor leaves --
+      // -- selection tracking: auto-enter / auto-exit edit mode --
+      let wasInside = false;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const onTransaction = ({ transaction }: any) => {
+        if (transaction.getMeta("imageCommit")) return;
         const pos = typeof getPos === "function" ? getPos() : undefined;
         if (typeof pos !== "number") return;
         const inside =
           transaction.selection.from >= pos &&
           transaction.selection.to <= pos + current.nodeSize;
-        if (!inside && editing) commitAndExit();
+        if (wasInside && !inside && editing) {
+          wasInside = false;
+          commitNode();
+          return;
+        }
+        if (inside && !wasInside && !editing && ready) startEditing();
+        wasInside = inside;
       };
       editor.on("transaction", onTransaction);
 
