@@ -9,7 +9,9 @@ import Image from "@tiptap/extension-image";
 function parseImageMd(
   text: string,
 ): { src: string; alt: string; title: string } | null {
-  const m = text.trim().match(/^!\[([^\]]*)\]\(([^)\s]*)((?:\s+"[^"]*")?)\)$/);
+  const m = text.trim().match(
+    /^!\[([^\]]*)\]\(([^()\s]*(?:\([^()\s]*\)[^()\s]*)*)((?:\s+"[^"]*")?)\)$/,
+  );
   if (!m) return null;
   return {
     alt: m[1],
@@ -274,13 +276,20 @@ const EditableImage = Image.extend({
           editor.view.dispatch(tr);
           return true;
         }
-        const nodeSize = current.nodeSize;
-        editor.view.dispatch(
-          editor.state.tr
-            .setMeta("imageCommit", true)
-            .delete(pos, pos + nodeSize),
-        );
-        return true;
+        // Never delete the image just because the edited text didn't parse
+        // (e.g. a URL with parentheses/spaces). Silently dropping the node
+        // here would erase it from the saved markdown. Only an intentionally
+        // emptied field removes the image; otherwise revert and back out.
+        if (text.trim() === "") {
+          const nodeSize = current.nodeSize;
+          editor.view.dispatch(
+            editor.state.tr
+              .setMeta("imageCommit", true)
+              .delete(pos, pos + nodeSize),
+          );
+          return true;
+        }
+        return false;
       };
 
       const commitAndExit = (moveDir?: 1 | -1) => {
