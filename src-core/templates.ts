@@ -6,6 +6,76 @@ export interface TemplateVarValues {
 }
 
 /**
+ * Reserved template-config frontmatter keys. `pattern` names created files;
+ * `type` is written into each created note's frontmatter.
+ */
+export const TEMPLATE_CONFIG_KEYS = ["pattern", "type"] as const;
+export type TemplateConfigKey = (typeof TEMPLATE_CONFIG_KEYS)[number];
+
+export interface TemplateMeta {
+  /** Filename pattern, e.g. "{{id}}-{{title}}" or "{{date}} {{title}}". */
+  pattern?: string;
+  /** Template type string written into created notes' frontmatter. */
+  type?: string;
+}
+
+/** Reads the reserved template-config frontmatter keys from a template. */
+export function templateMeta(templateText: string): TemplateMeta {
+  const { fm } = splitFrontMatter(templateText);
+  const meta: TemplateMeta = {};
+  if (typeof fm.pattern === "string" && fm.pattern.trim()) {
+    meta.pattern = fm.pattern;
+  }
+  if (typeof fm.type === "string" && fm.type.trim()) {
+    meta.type = fm.type;
+  }
+  return meta;
+}
+
+/** Edits the reserved template-config keys, preserving the body. */
+export function setTemplateMeta(
+  templateText: string,
+  patch: Partial<TemplateMeta>,
+): string {
+  const { fm, body } = splitFrontMatter(templateText);
+  const next: FrontMatter = { ...fm };
+  const keys: TemplateConfigKey[] = ["pattern", "type"];
+  for (const k of keys) {
+    const v = patch[k];
+    if (v === undefined) continue;
+    if (v === "") delete next[k];
+    else next[k] = v;
+  }
+  return joinFrontMatter(next, body);
+}
+
+/** Variables available when naming a note from a template. */
+export interface FileNameVars {
+  title: string;
+  id: string;
+  author?: string;
+  date?: string;
+  time?: string;
+  [key: string]: string | undefined;
+}
+
+/**
+ * Renders a filename pattern to a safe .md file name, or null when no
+ * pattern is set (caller falls back to default title+id naming). Unknown
+ * placeholders are preserved so typos stay visible, then sanitized.
+ */
+export function fileNameForPattern(
+  pattern: string | undefined,
+  vars: FileNameVars,
+): string | null {
+  if (!pattern || !pattern.trim()) return null;
+  const rendered = renderTemplate(pattern.trim(), vars as TemplateVarValues);
+  const base = rendered.trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-+|-+$/g, "") || "untitled";
+  return `${base}.md`;
+}
+
+/**
  * Replaces {{var}} placeholders. Supported built-ins:
  *   {{title}} {{date}} {{time}} {{id}} {{author}}
  * plus any caller-supplied values. Unknown vars are left intact so users
@@ -52,6 +122,8 @@ export function applyTemplate(
   const time = input.time ?? now.toTimeString().slice(0, 5);
 
   const merged: FrontMatter = { ...fm };
+  // `pattern` is naming-only metadata and must not be written into notes.
+  delete merged.pattern;
   const defaults: FrontMatter = {
     title: input.title,
     date,

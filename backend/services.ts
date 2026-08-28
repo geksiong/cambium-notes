@@ -3,7 +3,11 @@ import { splitFrontMatter, titleFromNote } from "../src-core/frontmatter.ts";
 import { buildGraph } from "../src-core/graph.ts";
 import { resolveLink } from "../src-core/links.ts";
 import { rewriteLinksForRename } from "../src-core/rename.ts";
-import { applyTemplate } from "../src-core/templates.ts";
+import {
+  applyTemplate,
+  fileNameForPattern,
+  templateMeta,
+} from "../src-core/templates.ts";
 import { generateId, safeFileName } from "../src-core/ids.ts";
 import { query } from "../src-core/search.ts";
 import type {
@@ -53,13 +57,18 @@ const BUILTIN_TEMPLATES = [
   {
     id: "builtin:blank",
     label: "Blank note",
-    content: "",
+    content: `---
+pattern: "{{title}}"
+---
+`,
   },
   {
     id: "builtin:zettel",
     label: "Zettel (permanent note)",
     content: `---
 title: "{{title}}"
+pattern: "{{id}}-{{title}}"
+type: zettel
 tags: []
 ---
 
@@ -78,6 +87,8 @@ Related: [[ ]]
     content: `---
 title: "{{title}}"
 description: ""
+pattern: "{{date}}-{{title}}"
+type: post
 tags: []
 draft: true
 ---
@@ -97,6 +108,7 @@ draft: true
     content: `---
 title: "{{title}}"
 date: "{{date}}"
+pattern: "{{date}}"
 type: daily
 ---
 
@@ -381,18 +393,33 @@ export class CambiumService {
     const tpl = (await this.listTemplates(collectionId))
       .find((t) => t.id === templateId);
     const id = generateId(cfg.idFormat ?? "zettel");
-    const fileName = safeFileName(title, id);
+    const now = new Date();
+    const date = now.toISOString().slice(0, 10);
+    const time = now.toTimeString().slice(0, 5);
+    const vars = {
+      title,
+      id,
+      date,
+      time,
+      author: this.settings.authorName || undefined,
+      ...extraVars,
+    };
+    const pattern = tpl && templateId !== "builtin:blank"
+      ? templateMeta(tpl.content).pattern
+      : undefined;
+    const fileName = fileNameForPattern(pattern, vars) ??
+      safeFileName(title, id);
     const rel = folder ? `${folder}/${fileName}` : fileName;
     const text = tpl && templateId !== "builtin:blank"
       ? applyTemplate(tpl.content, {
         title,
         id,
+        date,
+        time,
         author: this.settings.authorName || undefined,
         extraVars,
       })
-      : `---\ntitle: ${JSON.stringify(title)}\ndate: ${
-        new Date().toISOString().slice(0, 10)
-      }\n---\n\n`;
+      : `---\ntitle: ${JSON.stringify(title)}\ndate: ${date}\n---\n\n`;
     await fsWriteNote(cfg.path, rel, text);
     return { path: rel };
   }

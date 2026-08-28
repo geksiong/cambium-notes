@@ -1162,6 +1162,12 @@ select:focus {
 .tm-new-button:hover {
   border-color: var(--accent);
 }
+.tm-meta-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 2px;
+}
 .tm-editor {
   flex: 1;
   display: flex;

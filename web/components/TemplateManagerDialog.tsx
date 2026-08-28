@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { collectVars } from "../../src-core/templates.ts";
+import {
+  collectVars,
+  setTemplateMeta,
+  templateMeta,
+} from "../../src-core/templates.ts";
 import { msg, useStore } from "../state/store.ts";
 import { rpc } from "../transport.ts";
 
@@ -21,6 +25,8 @@ export function TemplateManagerDialog() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [fileName, setFileName] = useState("");
+  const [pattern, setPattern] = useState("");
+  const [tmplType, setTmplType] = useState("");
   const [draft, setDraft] = useState("");
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
@@ -72,14 +78,19 @@ export function TemplateManagerDialog() {
       setSelectedId(null);
       setIsNew(true);
       setFileName("");
+      setPattern("");
+      setTmplType("");
       setDraft("");
       setSaved(false);
       setError("");
       return;
     }
+    const meta = templateMeta(t.content);
     setSelectedId(t.id);
     setIsNew(false);
     setFileName(t.id.replace("user:", ""));
+    setPattern(meta.pattern ?? "");
+    setTmplType(meta.type ?? "");
     setDraft(t.content);
     setSaved(false);
     setError("");
@@ -107,28 +118,34 @@ export function TemplateManagerDialog() {
       return;
     }
     const extName = name.endsWith(".md") ? name : `${name}.md`;
+    const content = setTemplateMeta(draft, {
+      pattern: pattern.trim() ? pattern.trim() : "",
+      type: tmplType.trim() ? tmplType.trim() : "",
+    });
     try {
       if (isNew || editingPreset || !selectedId) {
         const created = await rpc<TemplateInfo>("templates.create", {
           collectionId: activeCollectionId,
           name: extName,
-          content: draft,
+          content,
         });
         setTemplates((ts) => [...ts, created]);
         setSelectedId(created.id);
         setIsNew(false);
         setFileName(created.id.replace("user:", ""));
+        setDraft(content);
         setStatus(`Created template ${created.label}`);
       } else {
         const updated = await rpc<TemplateInfo>("templates.save", {
           collectionId: activeCollectionId,
           id: selectedId,
-          content: draft,
+          content,
         });
         setTemplates((ts) =>
           ts.map((u) => (u.id === updated.id ? updated : u))
         );
         setFileName(updated.id.replace("user:", ""));
+        setDraft(content);
         setStatus(`Saved template ${updated.label}`);
       }
       setSaved(true);
@@ -217,6 +234,33 @@ export function TemplateManagerDialog() {
                 readOnly={!!selected && !editingPreset && !isNew}
               />
             </label>
+
+            <div className="tm-meta-fields">
+              <label className="field">
+                <span>Filename pattern</span>
+                <input
+                  value={pattern}
+                  onChange={(e) => {
+                    setPattern(e.target.value);
+                    setSaved(false);
+                  }}
+                  placeholder="{{id}}-{{title}}"
+                  title="Names created files. Vars: {{title}} {{id}} {{date}} {{time}} {{author}}"
+                />
+              </label>
+              <label className="field">
+                <span>Type (frontmatter)</span>
+                <input
+                  value={tmplType}
+                  onChange={(e) => {
+                    setTmplType(e.target.value);
+                    setSaved(false);
+                  }}
+                  placeholder="zettel"
+                  title="Written into each created note's frontmatter as `type`"
+                />
+              </label>
+            </div>
 
             <div className="tm-head">
               {extraVarNames.length > 0 && (

@@ -2,7 +2,10 @@ import { assert, assertEquals } from "@std/assert";
 import {
   applyTemplate,
   collectVars,
+  fileNameForPattern,
   renderTemplate,
+  setTemplateMeta,
+  templateMeta,
 } from "../src-core/templates.ts";
 import { generateId, safeFileName, zettelId } from "../src-core/ids.ts";
 
@@ -57,4 +60,80 @@ Deno.test("ids and filenames", () => {
     "1234567890-hello-world-你好.md",
   );
   assertEquals(safeFileName("///", ""), "untitled.md");
+});
+
+Deno.test("templateMeta reads pattern and type from frontmatter", () => {
+  const tpl = `---
+pattern: "{{id}}-{{title}}"
+type: daily
+---
+
+Body
+`;
+  assertEquals(templateMeta(tpl), {
+    pattern: "{{id}}-{{title}}",
+    type: "daily",
+  });
+  assertEquals(templateMeta("no frontmatter"), {});
+});
+
+Deno.test("applyTemplate drops pattern but keeps type in note", () => {
+  const tpl = `---
+title: "{{title}}"
+pattern: "{{id}}-{{title}}"
+type: zettel
+---
+
+# {{title}}
+`;
+  const note = applyTemplate(tpl, { title: "My Note", id: "abc123" });
+  assert(note.includes("type: zettel"));
+  assert(!note.includes("pattern:"));
+});
+
+Deno.test("fileNameForPattern renders and sanitizes", () => {
+  const vars = {
+    title: "Hello, World!",
+    id: "123",
+    date: "2026-08-25",
+  };
+  assertEquals(
+    fileNameForPattern("{{id}}-{{title}}", vars),
+    "123-hello-world.md",
+  );
+  assertEquals(
+    fileNameForPattern("{{date}} {{title}}", vars),
+    "2026-08-25-hello-world.md",
+  );
+  assertEquals(
+    fileNameForPattern("Daily {{date}}", vars),
+    "daily-2026-08-25.md",
+  );
+  assertEquals(fileNameForPattern("", vars), null);
+  assertEquals(fileNameForPattern(undefined, vars), null);
+  assertEquals(
+    fileNameForPattern("{{title}} {{unknown}}", vars),
+    "hello-world-unknown.md",
+  );
+});
+
+Deno.test("setTemplateMeta edits reserved keys preserving body", () => {
+  const tpl = `---
+title: T
+tags: []
+---
+
+Body here
+`;
+  const updated = setTemplateMeta(tpl, {
+    pattern: "{{date}}",
+    type: "daily",
+  });
+  assertEquals(templateMeta(updated), { pattern: "{{date}}", type: "daily" });
+  assert(updated.includes("Body here"));
+  assert(updated.includes("title: T"));
+  assert(updated.includes("tags:"));
+
+  const cleared = setTemplateMeta(updated, { pattern: "" });
+  assertEquals(templateMeta(cleared).pattern, undefined);
 });
