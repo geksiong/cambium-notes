@@ -11,7 +11,12 @@ import { rpc } from "../transport.ts";
 import { applyTheme } from "./theme.ts";
 
 export type PanelKind = "outline" | "ai" | "git" | "publish" | null;
-export type DialogKind = "templates" | "settings" | "add-collection" | null;
+export type DialogKind =
+  | "templates"
+  | "templates-manager"
+  | "settings"
+  | "add-collection"
+  | null;
 
 export interface Tab {
   path: string;

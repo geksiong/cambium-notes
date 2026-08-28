@@ -1125,6 +1125,72 @@ select:focus {
 .modal.wide {
   width: 560px;
 }
+.tm-app {
+  display: flex;
+  gap: 10px;
+  min-height: 320px;
+}
+.tm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 180px;
+  flex-shrink: 0;
+}
+.tm-list > button {
+  text-align: left;
+  padding: 6px 8px;
+  border-radius: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tm-list > button.on {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.tm-new-button {
+  margin-top: auto;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: transparent;
+  color: var(--accent);
+  text-align: center;
+}
+.tm-new-button:hover {
+  border-color: var(--accent);
+}
+.tm-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.tm-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tm-filename {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.tm-textarea {
+  flex: 1;
+  min-height: 260px;
+  resize: vertical;
+  font-family: ui-monospace, monospace;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+}
 .provider-card {
   display: flex;
   flex-direction: column;

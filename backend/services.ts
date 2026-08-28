@@ -115,6 +115,8 @@ export interface TemplateInfo {
   id: string;
   label: string;
   content: string;
+  /** Built-in preset templates cannot be overwritten; save under a new name. */
+  readonly?: boolean;
 }
 
 interface CollectionIndex {
@@ -452,7 +454,10 @@ export class CambiumService {
   // -------------------------------------------------------------- templates
 
   async listTemplates(collectionId?: string): Promise<TemplateInfo[]> {
-    const out = [...BUILTIN_TEMPLATES];
+    const out: TemplateInfo[] = BUILTIN_TEMPLATES.map((t) => ({
+      ...t,
+      readonly: true,
+    }));
     if (!collectionId) return out;
     const cfg = this.settings.collections.find((c) => c.id === collectionId);
     if (!cfg) return out;
@@ -472,6 +477,72 @@ export class CambiumService {
       // no user templates yet
     }
     return out;
+  }
+
+  /** Absolute template dir for a collection, creating it if needed. */
+  private templateDirFor(collectionId: string): string {
+    const cfg = this.collection(collectionId);
+    return path.join(cfg.path, cfg.templateDir ?? ".cambium/templates");
+  }
+
+  /** Resolve a user: template file, rejecting built-ins and traversal. */
+  private templateFile(collectionId: string, id: string): string {
+    if (!id.startsWith("user:")) {
+      throw new Error("Only collection templates can be edited.");
+    }
+    const fileName = id.slice("user:".length);
+    if (!fileName.endsWith(".md") || path.basename(fileName) !== fileName) {
+      throw new Error(`Invalid template name: ${fileName}`);
+    }
+    return path.join(this.templateDirFor(collectionId), fileName);
+  }
+
+  async createTemplate(
+    collectionId: string,
+    name: string,
+    content = "",
+  ): Promise<TemplateInfo> {
+    const trimmed = name.trim();
+    if (!trimmed) throw new Error("Template name is empty.");
+    const fileName = trimmed.endsWith(".md") ? trimmed : `${trimmed}.md`;
+    if (path.basename(fileName) !== fileName) {
+      throw new Error("Template name must not contain path separators.");
+    }
+    const dir = this.templateDirFor(collectionId);
+    await Deno.mkdir(dir, { recursive: true });
+    const file = path.join(dir, fileName);
+    if (await Deno.stat(file).catch(() => null)) {
+      throw new Error(`Template already exists: ${trimmed}`);
+    }
+    await Deno.writeTextFile(file, content);
+    return {
+      id: `user:${fileName}`,
+      label: titleFromNote(fileName, splitFrontMatter(content).fm),
+      content,
+    };
+  }
+
+  async saveTemplate(
+    collectionId: string,
+    id: string,
+    content: string,
+  ): Promise<TemplateInfo> {
+    const file = this.templateFile(collectionId, id);
+    await Deno.mkdir(path.dirname(file), { recursive: true });
+    await Deno.writeTextFile(file, content);
+    return {
+      id,
+      label: titleFromNote(
+        path.basename(file),
+        splitFrontMatter(content).fm,
+      ),
+      content,
+    };
+  }
+
+  async deleteTemplate(collectionId: string, id: string): Promise<void> {
+    const file = this.templateFile(collectionId, id);
+    await Deno.remove(file);
   }
 
   // ---------------------------------------------------------- graph, search

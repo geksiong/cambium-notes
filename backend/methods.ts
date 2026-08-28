@@ -68,6 +68,16 @@ export const METHODS: MethodTable = {
 
   "templates.list": (svc, a?: { collectionId?: string }) =>
     svc.listTemplates(a?.collectionId),
+  "templates.create": (
+    svc,
+    a: { collectionId: string; name: string; content?: string },
+  ) => svc.createTemplate(a.collectionId, a.name, a.content),
+  "templates.save": (
+    svc,
+    a: { collectionId: string; id: string; content: string },
+  ) => svc.saveTemplate(a.collectionId, a.id, a.content),
+  "templates.delete": (svc, a: { collectionId: string; id: string }) =>
+    svc.deleteTemplate(a.collectionId, a.id),
 
   "graph.get": (svc, a?: { collectionId?: string }) =>
     svc.getGraph(a?.collectionId),

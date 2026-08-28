@@ -7,6 +7,7 @@ import { GitPanel } from "./components/GitPanel.tsx";
 import { OutlinePanel } from "./components/OutlinePanel.tsx";
 import { PublishPanel } from "./components/PublishPanel.tsx";
 import { TemplatesDialog } from "./components/TemplatesDialog.tsx";
+import { TemplateManagerDialog } from "./components/TemplateManagerDialog.tsx";
 import {
   AddCollectionDialog,
   SettingsDialog,
@@ -115,6 +116,9 @@ export function App() {
           ⏏
         </button>
         <button onClick={() => setDialog("templates")}>New</button>
+        <button onClick={() => setDialog("templates-manager")}>
+          Templates
+        </button>
         <button
           onClick={() =>
             window.dispatchEvent(new CustomEvent("cambium:toggle-graph"))}
@@ -189,6 +193,7 @@ export function App() {
       </footer>
 
       {dialog === "templates" && <TemplatesDialog />}
+      {dialog === "templates-manager" && <TemplateManagerDialog />}
       {dialog === "settings" && <SettingsDialog />}
       {dialog === "add-collection" && <AddCollectionDialog />}
       <GraphOverlay />
