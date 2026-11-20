@@ -20,6 +20,12 @@ webview, so the same app can later ship as a web app or Tauri binary (see
 
 - **WYSIWYG markdown editor** (TipTap/ProseMirror) that round-trips canonical
   markdown to disk, with debounced autosave and Ctrl/Cmd-S
+- **Pandoc-safe saving** — files written for Pandoc (e.g. libromorph books)
+  survive editing: math `$…$`/`$$…$$`, bracketed spans `[x]{.cls}`, fenced
+  divs `::: note`, footnotes, citations, sub/superscript, definition lists,
+  line blocks, fancy lists, all table kinds, raw TeX and HTML are preserved —
+  saving never changes how Pandoc or CommonMark renders the file. Constructs
+  without a rich editor view show as editable source.
 - **Checklists** — GFM task lists (`- [ ]` / `- [x]`) with clickable
   checkboxes, nesting and a toolbar toggle
 - **Frontmatter support** — YAML header card above the document with tabbed

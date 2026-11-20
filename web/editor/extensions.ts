@@ -417,6 +417,8 @@ import { Extension } from "@tiptap/core";
 import type { AnyExtension } from "@tiptap/core";
 import { Plugin, PluginKey, Selection, TextSelection } from "@tiptap/pm/state";
 import { Markdown } from "tiptap-markdown";
+import { defaultMarkdownSerializer } from "@tiptap/pm/markdown";
+import { PANDOC_EXTENSIONS } from "./pandoc.ts";
 import taskListPlugin from "markdown-it-task-lists";
 import { getCodeRenderer, registerCodeRenderer } from "./codeRenderers.ts";
 import {
@@ -1545,17 +1547,91 @@ function loadPlugins(): PluginContribution {
 
 const contributions = loadPlugins();
 
+/**
+ * Link mark that keeps what the source had: a `title` (`[x](url "t")`),
+ * and bare URLs that markdown-it's linkify turned into links — those are
+ * written back as plain text while their text is unchanged, since Pandoc
+ * (no autolink_bare_uris) renders them unlinked.
+ */
+export const PreservingLink = Link.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      title: {
+        default: null,
+        parseHTML: (el: HTMLElement) => el.getAttribute("title"),
+      },
+      bare: {
+        default: null,
+        parseHTML: (el: HTMLElement) => el.getAttribute("data-bare"),
+        renderHTML: (a: Record<string, unknown>) =>
+          a.bare != null ? { "data-bare": a.bare } : {},
+      },
+    };
+  },
+  addStorage() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const base = defaultMarkdownSerializer.marks.link as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const isBare = (mark: any, parent: any, index: number) => {
+      if (mark.attrs.bare == null) return false;
+      const child = parent.child(index);
+      const next = index + 1 < parent.childCount
+        ? parent.child(index + 1)
+        : null;
+      return child.isText && child.text === mark.attrs.bare &&
+        !(next && mark.isInSet(next.marks));
+    };
+    return {
+      markdown: {
+        serialize: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          open(state: any, mark: any, parent: any, index: number) {
+            if (isBare(mark, parent, index)) {
+              state.inBareLink = true;
+              return "";
+            }
+            return base.open(
+              state,
+              mark,
+              parent,
+              index,
+            );
+          },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          close(state: any, mark: any, parent: any, index: number) {
+            if (state.inBareLink) {
+              state.inBareLink = false;
+              return "";
+            }
+            return base.close(
+              state,
+              mark,
+              parent,
+              index,
+            );
+          },
+          mixable: true,
+        },
+      },
+    };
+  },
+});
+
 export function buildExtensions() {
   return [
     StarterKit.configure({
-      heading: { levels: [1, 2, 3] },
+      // All six levels: the schema must hold any heading a file contains
+      // (the toolbar still offers H1–H3).
+      heading: { levels: [1, 2, 3, 4, 5, 6] },
       codeBlock: false,
       horizontalRule: {},
+      text: false, // replaced by PandocText (see PANDOC_EXTENSIONS)
     }),
     RenderableCodeBlock.configure({
       languageClassPrefix: "language-",
     }),
-    Link.configure({ openOnClick: false, autolink: true }),
+    PreservingLink.configure({ openOnClick: false, autolink: true }),
     EditableImage,
     TightTaskList,
     // nested: allow lists (incl. other task lists) inside a task item
@@ -1568,6 +1644,9 @@ export function buildExtensions() {
       transformCopiedText: true,
     }),
     ImageResolver,
+    // Pandoc syntax (math, spans, fenced divs) and [[wikilinks]] — kept
+    // verbatim so saving never escapes or flattens them.
+    ...PANDOC_EXTENSIONS,
     ...contributions.extensions,
   ];
 }
