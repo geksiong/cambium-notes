@@ -352,13 +352,16 @@ interface CambiumPlugin {
   (lazy-loaded `mermaid`, `securityLevel: "strict"`) using `mode: "inline"` —
   the diagram replaces the source unless the caret is inside the block; parse
   errors show inline instead of a chart.
-- **Syntax highlighting:** fenced blocks are tokenised with highlight.js
-  (lowlight `common` bundle) and coloured via ProseMirror inline decorations
-  computed per transaction in a `codeBlockHighlight` plugin; unknown languages
-  stay plain. Theme-aware palettes live in styles.css.
+- **Syntax highlighting:** fenced blocks are tokenised with Shiki (JavaScript
+  regex engine, every bundled language loaded lazily on first use) and coloured
+  via ProseMirror inline decorations (`web/editor/highlight.ts`); unknown
+  languages stay plain. Token colours come from a light/dark Shiki theme pair
+  mapped to runtime-generated `ec-tok-*` classes.
 - **Language specs:** the fence info string is kept verbatim in `attrs.language`
-  and round-trips through markdown. Format: `lang` or `lang{opts}` — currently
-  `{1,3-5}` line lists/ranges, rendered as `hl-line` decorations.
+  and round-trips through markdown. It is parsed (`web/editor/fence.ts`) with
+  `@expressive-code/core`'s `MetaOptions`, so line/column markers, `ins`/`del`,
+  labels, inline text/regex markers, `title`, `wrap` and `diff` + `lang="…"`
+  all render live; publish-only options are parsed but not previewed.
   Renderers/highlighting resolve the base language only.
 - **Fence reveal:** while a block is being edited (caret inside), its
   opening/closing `` ``` `` lines are shown around the source and hidden on

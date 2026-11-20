@@ -38,20 +38,34 @@ webview, so the same app can later ship as a web app or Tauri binary (see
 - **AI copilot** — bring-your-own-key providers (OpenAI-compatible, Anthropic,
   Ollama) with streaming summarise / critique / research / draft / continue /
   rewrite commands
-- **Editor plugins** — registry-based API for fenced-code-block renderers;
-  builtin plugins render ABC music scores
-  (`abc) and Mermaid diagrams
-  (`mermaid) inline — the rendering replaces the
-  source unless you're editing the block
-- **Syntax highlighting** for fenced code blocks (~40 languages via
-  highlight.js/lowlight), theme-aware light & dark palettes. Fence options are
-  supported: `ts{1,3-5}` highlights lines 1 and 3–5. Entering a block reveals
-  its ``` fence lines; edit the language/options right on the opening fence
-  (click, or arrow up from the code) — Enter applies, Esc cancels. The closing
-  fence is interactive too: reach it with ↓ from the block's last line (or click
-  it) and Enter inserts an empty line below the block — the way to separate two
-  adjacent code blocks. ↑/Esc returns to the code; ↓ leaves forward past the
-  block.
+- **Editor plugins** — registry-based API for fenced-code-block renderers
+  (`"below"` mode shows output under the live source; `"inline"` mode replaces
+  the source until you edit the block). Builtin plugins render ABC music scores
+  (` ```abc `) and Mermaid diagrams (` ```mermaid `) inline. Renderers match the
+  fence's base language, so ` ```mermaid {1-3} ` still renders.
+- **Fenced code blocks** (` ``` ` or `~~~`) with **Shiki** syntax highlighting
+  — every Shiki-bundled language, loaded lazily on first use; unknown languages
+  stay plain — and theme-aware light & dark palettes. The opening-fence info
+  string is stored verbatim, so it round-trips unchanged, and is parsed with
+  Expressive Code's own grammar — the same one the Astro site renders with:
+  - line highlights `ts {1, 4, 7-8}` (legacy `ts{1,3-5}` also accepted),
+    `mark={…}`, `ins={…}`, `del={…}`, labelled ranges `{"A":6-10}` and column
+    ranges `{6-7:8-10}`
+  - inline text markers `"search me"` and `/re[gx]/` (optionally typed, e.g.
+    `ins="…"`)
+  - `title="demo.ts"` (shown beside the language chip) and `wrap` / `!wrap`
+  - ` ```diff ` blocks render `+`/`-` lines as ins/del; add `lang="ts"` to keep
+    syntax colours
+  - publish-only options (frames, collapse, preserveIndent…) are kept but have
+    no live preview
+- **Code block editing** — double-click the language chip to change the
+  language. Entering a block reveals its fence lines; edit the language/options
+  right on the opening fence (click, or arrow up from the code) — Enter applies,
+  Esc cancels. The closing fence is interactive too: reach it with ↓ from the
+  block's last line (or click it) and Enter inserts an empty line below the
+  block — the way to separate two adjacent code blocks. ↑/Esc returns to the
+  code; ↓ leaves forward past the block. Pasting fenced markdown into a block
+  strips the fences instead of nesting them.
 - Native menus & window management, file watching with live reindex, cross-
   collection search
 
