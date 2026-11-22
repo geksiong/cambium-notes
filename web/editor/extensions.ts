@@ -1001,7 +1001,8 @@ export const RenderableCodeBlock = CodeBlock.extend({
           pre.style.display = "none";
           preview.style.display = "";
           if (code.trim()) {
-            cleanup = renderer(preview, code) || undefined;
+            cleanup = renderer(preview, code, { info: language ?? "" }) ||
+              undefined;
           } else {
             preview.classList.add("cb-placeholder");
             preview.textContent = `Empty ${language} block — click to edit`;
@@ -1013,7 +1014,8 @@ export const RenderableCodeBlock = CodeBlock.extend({
         pre.style.display = "";
         if (renderer && code.trim()) {
           preview.style.display = "";
-          cleanup = renderer(preview, code) || undefined;
+          cleanup = renderer(preview, code, { info: language ?? "" }) ||
+            undefined;
         } else {
           preview.style.display = "none";
         }

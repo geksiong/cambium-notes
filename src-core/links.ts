@@ -1,4 +1,5 @@
 import { splitFrontMatter, tagsFromFrontMatter } from "./frontmatter.ts";
+import { extractMdLinks } from "./mdlinks.ts";
 
 const WIKILINK_RE = /\[\[([^\]|#]+)(#[^\]|]+)?(?:\|([^\]]+))?\]\]/g;
 const TAG_RE = /(^|[\s(])#([\p{L}\p{N}_/-]{2,64})/gu;
@@ -65,9 +66,24 @@ export interface LinkScan {
   tags: string[];
 }
 
-export function scanNote(text: string, fmTags = true): LinkScan {
+/**
+ * Links and tags of one note. With `notePath` (collection-relative), links
+ * to other .md files (`[x](../a/b.md#h)`) are included as the full
+ * collection-relative path of their target, next to wikilink targets.
+ */
+export function scanNote(
+  text: string,
+  fmTags = true,
+  notePath?: string,
+): LinkScan {
   const { fm, body } = splitFrontMatter(text);
   const tags = new Set(extractInlineTags(body));
   if (fmTags) { for (const t of tagsFromFrontMatter(fm)) tags.add(t); }
-  return { links: extractWikilinks(body), tags: [...tags] };
+  const links = extractWikilinks(body);
+  if (notePath !== undefined) {
+    for (const l of extractMdLinks(body, notePath)) {
+      if (!links.includes(l)) links.push(l);
+    }
+  }
+  return { links, tags: [...tags] };
 }

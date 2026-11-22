@@ -18,8 +18,21 @@
  *   focusing/clicking the block reveals the source again
  */
 export interface CodeRenderer {
-  (container: HTMLElement, code: string): void | (() => void);
+  (
+    container: HTMLElement,
+    code: string,
+    context?: CodeRenderContext,
+  ): void | (() => void);
   mode?: "below" | "inline";
+}
+
+/** What a renderer may need beyond the block's code. */
+export interface CodeRenderContext {
+  /**
+   * The verbatim opening-fence info string, e.g. `abc` or
+   * `{.rhythm-grid .circle tempo=100}`, for renderers that take options.
+   */
+  info: string;
 }
 
 export interface ToolbarItem {

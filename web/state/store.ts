@@ -342,10 +342,23 @@ export const useStore = create<StoreState>((set, get) => ({
       throw e;
     }
     const newKey = `${id}:${dest}`;
+    // The backend rewrites the moved note's relative .md links, so re-read
+    // it rather than keep the copy from before the move.
+    let moved: NoteContent | null = null;
+    if (get().notes[oldKey] && !get().dirty.has(oldKey)) {
+      try {
+        moved = await rpc<NoteContent>("note.read", {
+          collectionId: id,
+          path: dest,
+        });
+      } catch {
+        // fall back to the in-memory copy below
+      }
+    }
     set((s) => {
       const notes = { ...s.notes };
       if (notes[oldKey]) {
-        notes[newKey] = { ...notes[oldKey], path: dest };
+        notes[newKey] = moved ?? { ...notes[oldKey], path: dest };
         delete notes[oldKey];
       }
       const dirty = new Set(s.dirty);

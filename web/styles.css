@@ -691,6 +691,311 @@ select:focus {
   border-color: var(--accent);
 }
 
+/* Notes under the ABC playback cursor. */
+.cb-abc svg .abc-note-playing:not([fill="none"]),
+.cb-abc svg .abc-note-playing [fill]:not([fill="none"]) {
+  fill: var(--accent);
+}
+.cb-abc svg .abc-note-playing:not([stroke="none"]),
+.cb-abc svg .abc-note-playing [stroke]:not([stroke="none"]) {
+  stroke: var(--accent);
+}
+
+/* abcjs playback controls (ABC scores and rhythm grids), themed in place of
+   abcjs-audio.css. Clicks here never open the block's source. */
+.cb-abc-audio {
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+  padding: 4px 6px 0;
+  cursor: default;
+}
+.cb-abc-audio .abcjs-inline-audio {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  color: var(--fg);
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+}
+.cb-abc-audio .abcjs-inline-audio.abcjs-disabled {
+  opacity: 0.5;
+}
+.cb-abc-audio .abcjs-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 6px;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: none;
+  color: var(--fg);
+  cursor: pointer;
+  line-height: 1;
+}
+.cb-abc-audio .abcjs-btn svg {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+.cb-abc-audio .abcjs-btn g,
+.cb-abc-audio .abcjs-btn path {
+  fill: currentColor;
+  stroke: currentColor;
+}
+.cb-abc-audio .abcjs-btn:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.cb-abc-audio .abcjs-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.cb-abc-audio .abcjs-midi-start {
+  color: var(--accent);
+}
+.cb-abc-audio .abcjs-midi-loop.abcjs-pushed {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.cb-abc-audio .abcjs-midi-start .abcjs-pause-svg,
+.cb-abc-audio .abcjs-midi-start .abcjs-loading-svg,
+.cb-abc-audio .abcjs-midi-start.abcjs-pushed .abcjs-play-svg,
+.cb-abc-audio .abcjs-midi-start.abcjs-loading .abcjs-play-svg,
+.cb-abc-audio .abcjs-midi-start.abcjs-loading .abcjs-pause-svg {
+  display: none;
+}
+.cb-abc-audio .abcjs-midi-start.abcjs-pushed .abcjs-pause-svg,
+.cb-abc-audio .abcjs-midi-start.abcjs-loading .abcjs-loading-svg {
+  display: block;
+}
+.cb-abc-audio .abcjs-midi-start.abcjs-loading {
+  animation: cb-abc-spin 1s linear infinite;
+}
+.cb-abc-audio .abcjs-loading-svg circle {
+  stroke: currentColor;
+}
+@keyframes cb-abc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.cb-abc-audio .abcjs-midi-progress-background {
+  position: relative;
+  flex: 1;
+  min-width: 3rem;
+  height: 6px;
+  margin: 0 10px;
+  padding: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--fg) 18%, transparent);
+  cursor: pointer;
+}
+.cb-abc-audio .abcjs-midi-progress-indicator {
+  position: absolute;
+  top: -4px;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.cb-abc-audio .abcjs-midi-clock {
+  flex-shrink: 0;
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+.cb-abc-audio .abcjs-tempo-wrapper {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: 6px;
+  color: var(--fg-dim);
+  font-size: 0.7rem;
+}
+.cb-abc-audio .abcjs-midi-tempo {
+  width: 3.25rem;
+  margin: 0 4px;
+  padding: 1px 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+}
+.cb-abc-audio .abcjs-css-warning {
+  display: none;
+}
+
+/* Rhythm grids (```rhythm-grid): box-notation tables and clock faces. */
+.cb-preview.cb-rhythm-grid {
+  color: var(--fg);
+  padding: 10px 12px 6px;
+}
+.cb-rhythm-grid .rg-scroll {
+  overflow-x: auto;
+}
+.cb-rhythm-grid .rg-title {
+  margin: 0 0 6px;
+  text-align: center;
+  font-weight: 600;
+}
+.cb-rhythm-grid .rg-table {
+  margin: 0 auto;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  line-height: 1.2;
+}
+.cb-rhythm-grid .rg-table th,
+.cb-rhythm-grid .rg-table td {
+  min-width: 1.6em;
+  padding: 0.3em 0.15em;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg);
+  text-align: center;
+  vertical-align: middle;
+  font-weight: normal;
+  transition: background-color 0.08s;
+}
+.cb-rhythm-grid .rg-table thead th {
+  font-weight: 600;
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
+}
+.cb-rhythm-grid .rg-table th.rg-label {
+  padding: 0.3em 0.5em 0.3em 0;
+  border-left: none;
+  background: transparent;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+.cb-rhythm-grid .rg-table thead th.rg-label {
+  border-top: none;
+}
+.cb-rhythm-grid .rg-table .rg-group-start {
+  border-left: 2px solid currentColor;
+}
+.cb-rhythm-grid .rg-strong {
+  font-size: 1.25em;
+  line-height: 1;
+}
+.cb-rhythm-grid .rg-light {
+  font-size: 0.85em;
+  line-height: 1;
+}
+.cb-rhythm-grid .rg-table td.rg-text {
+  font-weight: 600;
+}
+.cb-rhythm-grid .rg-table td.rg-phrase {
+  font-weight: normal;
+  font-style: italic;
+  text-align: left;
+}
+.cb-rhythm-grid .rg-hold-bar {
+  display: block;
+  height: 0;
+  margin: 0 -0.15em;
+  border-top: 3px solid currentColor;
+}
+.cb-rhythm-grid .rg-table .rg-note {
+  border: none;
+  color: var(--fg-dim);
+  font-style: italic;
+  text-align: left;
+  white-space: nowrap;
+}
+.cb-rhythm-grid .rg-legend {
+  margin: 6px 0 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--fg-dim);
+}
+.cb-rhythm-grid .rg-hold-sample {
+  display: inline-block;
+  width: 1.4em;
+  border-top: 3px solid currentColor;
+  vertical-align: middle;
+}
+.cb-rhythm-grid .rhythm-grid-circle {
+  text-align: center;
+}
+.cb-rhythm-grid .rg-circle-svg {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+}
+.cb-rhythm-grid .rg-error {
+  margin: 6px 0 0;
+  color: var(--danger);
+  font-size: 0.82rem;
+}
+/* Column under the playback cursor. */
+.cb-rhythm-grid .rg-table .rg-playing {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent);
+}
+.cb-rhythm-grid .rg-circle-svg .rg-playing {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+.cb-rhythm-grid .rg-circle-svg .rg-playing[fill="none"] {
+  fill: none;
+}
+.cb-rhythm-grid .cb-abc-audio {
+  margin: 8px -12px 0;
+}
+
+/* Guitar diagrams: ```chord, ```fretboard, ```fretdrom. */
+.cb-preview.cb-chords,
+.cb-preview.cb-fretboard {
+  color: var(--fg);
+  padding: 10px 12px;
+}
+.cb-chords .chord-diagrams {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+}
+.cb-chords .chord-svg {
+  margin: 0;
+  height: auto;
+}
+.cb-chords .chord-finger {
+  fill: var(--bg-2);
+  font-weight: 700;
+}
+:root[data-theme="light"] .cb-chords .chord-finger {
+  fill: #fff;
+}
+.cb-fretboard-title {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+.cb-fretboard svg,
+.cb-fretdrom img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+/* Fretdrom draws dark ink on white; keep it on a light card in dark mode. */
+.cb-fretdrom img {
+  background: #fff;
+  border-radius: 4px;
+  padding: 6px;
+}
+.cb-diagram-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.84rem;
+}
+
 /* ------- code syntax highlighting (Shiki tokens + Expressive Code) -------- */
 /* Token colors live in runtime-generated ec-tok-* classes (highlight.ts):
    dark rules on the base selector, light overrides below. */

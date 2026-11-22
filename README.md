@@ -40,15 +40,30 @@ webview, so the same app can later ship as a web app or Tauri binary (see
   notes into its content collection, build via detected package manager, deploy
   to GitHub Pages or Netlify
 - **Knowledge graph** — force-directed sigma.js visualisation of `[[wikilinks]]`
-  within or across collections; click a node to open the note
+  and Markdown links to other notes (`[see](../intro.md#setup)`, resolved
+  relative to the linking note, as Pandoc and libromorph do) within or across
+  collections; click a node to open the note
 - **AI copilot** — bring-your-own-key providers (OpenAI-compatible, Anthropic,
   Ollama) with streaming summarise / critique / research / draft / continue /
   rewrite commands
 - **Editor plugins** — registry-based API for fenced-code-block renderers
   (`"below"` mode shows output under the live source; `"inline"` mode replaces
-  the source until you edit the block). Builtin plugins render ABC music scores
-  (` ```abc `) and Mermaid diagrams (` ```mermaid `) inline. Renderers match the
-  fence's base language, so ` ```mermaid {1-3} ` still renders.
+  the source until you edit the block). Renderers receive the verbatim fence
+  info string, so blocks can take options. Builtin plugins render inline:
+  - ABC music scores (` ```abc `), with playback controls (play/pause, loop,
+    restart, progress, tempo) that highlight notes as they sound
+  - Mermaid diagrams (` ```mermaid `)
+  - libromorph rhythm grids (` ```rhythm-grid `): box-notation tables, or a
+    clock face with `.circle`; a grid with `tempo=` plays as percussion
+    (`play`, `repeat`, `sound`, `count-in` as in libromorph) with the sounding
+    column highlighted
+  - guitar diagrams: chord shapes (` ```chord `), fretboard.js scales and
+    positions (` ```fretboard `, scale dots named with ♭/♯) and Fretdrom boxes
+    (` ```fretdrom `), bundled so they work offline
+
+  Only one score or grid plays at a time. Renderers match the fence's base
+  language, so ` ```mermaid {1-3} ` still renders, and Pandoc attribute
+  fences use their first class: ` ```{.rhythm-grid .circle title="…"} `.
 - **Fenced code blocks** (` ``` ` or `~~~`) with **Shiki** syntax highlighting
   — every Shiki-bundled language, loaded lazily on first use; unknown languages
   stay plain — and theme-aware light & dark palettes. The opening-fence info

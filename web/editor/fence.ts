@@ -140,21 +140,37 @@ export function parseFence(raw: string | null | undefined): FenceInfo {
   const trimmed = raw?.trim();
   if (!trimmed) return EMPTY_INFO;
 
-  // First whitespace-delimited word is the language; the rest is meta.
-  // Legacy space-free specs (`ts{1,3-5}`) move their braces into the meta.
-  const head = /^(\S+)(?:\s+([\s\S]*))?$/.exec(trimmed);
-  if (!head) return EMPTY_INFO;
-  let lang: string | null = head[1];
-  let meta = head[2] ?? "";
+  let lang: string | null;
+  let meta: string;
+  // Pandoc attribute fences (`{.rhythm-grid .circle tempo=100}`, as
+  // libromorph books write them): the first class is the language and the
+  // other attributes are the meta, so `title="…"` still shows. Without a
+  // class (`{#id}`) there is no language.
+  const pandoc = /^\{\s*((?:[.#]|[^\s={}]+=)[^{}]*?)\s*\}$/.exec(trimmed);
+  if (pandoc) {
+    const cls = /(^|\s)\.([^\s.#={}]+)/.exec(pandoc[1]);
+    lang = cls ? cls[2] : null;
+    meta = cls
+      ? (pandoc[1].slice(0, cls.index) + cls[1] +
+        pandoc[1].slice(cls.index + cls[0].length)).trim()
+      : pandoc[1];
+  } else {
+    // First whitespace-delimited word is the language; the rest is meta.
+    // Legacy space-free specs (`ts{1,3-5}`) move their braces into the meta.
+    const head = /^(\S+)(?:\s+([\s\S]*))?$/.exec(trimmed);
+    if (!head) return EMPTY_INFO;
+    lang = head[1];
+    meta = head[2] ?? "";
 
-  const legacy = /^([^{}\s]+)\{([\s\S]*)\}$/.exec(lang);
-  if (legacy) {
-    lang = legacy[1];
-    meta = `{${legacy[2]}}${meta ? ` ${meta}` : ""}`;
+    const legacy = /^([^{}\s]+)\{([\s\S]*)\}$/.exec(lang);
+    if (legacy) {
+      lang = legacy[1];
+      meta = `{${legacy[2]}}${meta ? ` ${meta}` : ""}`;
+    }
   }
 
   const opts = new MetaOptions(meta);
-  const isDiff = lang.toLowerCase() === "diff";
+  const isDiff = lang?.toLowerCase() === "diff";
   const langAttr = opts.getString("lang");
 
   const lineMarkers: MarkerGroup[] = [];

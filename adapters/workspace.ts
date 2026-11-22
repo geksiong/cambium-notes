@@ -176,7 +176,7 @@ export async function indexCollection(
     try {
       const text = await Deno.readTextFile(path.resolve(cfg.path, rel));
       const { fm, body } = splitFrontMatter(text);
-      const scan = scanNote(text);
+      const scan = scanNote(text, true, rel);
       bodies.set(rel, body);
       refs.push({
         path: rel,

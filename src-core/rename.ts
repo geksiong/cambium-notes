@@ -1,4 +1,5 @@
 import { resolveLink } from "./links.ts";
+import { rewriteMdLinksTo } from "./mdlinks.ts";
 
 /**
  * Clean a collection-relative path: posix separators, no leading "./" or "/",
@@ -45,14 +46,29 @@ function baseName(p: string): string {
  * point at the renamed location `to`. Targets keep their shape: bare basenames
  * stay bare, path-like targets become the full new relpath, an explicit .md
  * suffix is preserved. Links inside code fences and links that do not resolve
- * to `from` are left untouched. Returns the new text and how many links were
- * rewritten.
+ * to `from` are left untouched. With `notePath` (the linking note's own
+ * collection-relative path), Markdown links to `from` (`[x](../old.md#h)`)
+ * are rewritten too, relative to the linking note, keeping their anchor.
+ * Returns the new text and how many links were rewritten.
  */
 export function rewriteLinksForRename(
   text: string,
   from: string,
   to: string,
   /** All known note paths *before* the rename, used for link resolution. */
+  allPaths: string[],
+  notePath?: string,
+): { text: string; count: number } {
+  const wiki = rewriteWikilinksForRename(text, from, to, allPaths);
+  if (notePath === undefined) return wiki;
+  const md = rewriteMdLinksTo(wiki.text, notePath, from, to);
+  return { text: md.text, count: wiki.count + md.count };
+}
+
+function rewriteWikilinksForRename(
+  text: string,
+  from: string,
+  to: string,
   allPaths: string[],
 ): { text: string; count: number } {
   const fences: Array<[number, number]> = [];

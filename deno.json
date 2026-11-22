@@ -67,10 +67,10 @@
     }
   },
   "fmt": {
-    "exclude": ["dist", "dist-desktop", "node_modules", "web/.vite"]
+    "exclude": ["dist", "dist-desktop", "node_modules", "web/.vite", "web/plugins/vendor"]
   },
   "lint": {
-    "exclude": ["dist", "dist-desktop", "node_modules", "web/.vite"],
+    "exclude": ["dist", "dist-desktop", "node_modules", "web/.vite", "web/plugins/vendor"],
     "rules": {
       "exclude": [
         "no-window",

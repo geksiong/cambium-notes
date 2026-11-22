@@ -3,6 +3,7 @@ import { splitFrontMatter, titleFromNote } from "../src-core/frontmatter.ts";
 import { buildGraph } from "../src-core/graph.ts";
 import { resolveLink } from "../src-core/links.ts";
 import { rewriteLinksForRename } from "../src-core/rename.ts";
+import { rewriteMovedNoteLinks } from "../src-core/mdlinks.ts";
 import {
   applyTemplate,
   fileNameForPattern,
@@ -432,8 +433,8 @@ export class CambiumService {
     const cfg = this.collection(collectionId);
     const dest = await renameEntry(cfg.path, from, to);
 
-    // Rewire wikilinks in notes that resolved to the old location, using the
-    // pre-rename path list for resolution.
+    // Rewire wikilinks and .md links in notes that resolved to the old
+    // location, using the pre-rename path list for resolution.
     const idx = this.indexes.get(collectionId);
     if (idx) {
       const samePath = (a: string, b: string) =>
@@ -443,6 +444,8 @@ export class CambiumService {
       )?.path ?? from;
       const prePaths = idx.refs.map((r) => r.path);
       for (const ref of idx.refs) {
+        // The moved note itself is handled below (it is no longer at ref.path).
+        if (ref.path === canonicalFrom) continue;
         if (
           !ref.links.some((l) => resolveLink(l, prePaths) === canonicalFrom)
         ) {
@@ -456,10 +459,30 @@ export class CambiumService {
             canonicalFrom,
             dest,
             prePaths,
+            ref.path,
           );
           if (count > 0) await Deno.writeTextFile(abs, rewritten);
         } catch {
           // unreadable file: skip link rewriting for it
+        }
+      }
+      // A note moved to another folder keeps its relative .md links
+      // pointing at the same notes.
+      if (
+        idx.refs.some((r) => r.path === canonicalFrom) &&
+        /\.md$/i.test(dest)
+      ) {
+        try {
+          const abs = path.join(cfg.path, dest);
+          const text = await Deno.readTextFile(abs);
+          const { text: rewritten, count } = rewriteMovedNoteLinks(
+            text,
+            canonicalFrom,
+            dest,
+          );
+          if (count > 0) await Deno.writeTextFile(abs, rewritten);
+        } catch {
+          // unreadable file: leave its links as they were
         }
       }
       // Keep search/graph consistent immediately; the watcher reindexes soon
