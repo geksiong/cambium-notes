@@ -51,7 +51,9 @@ webview, so the same app can later ship as a web app or Tauri binary (see
   the source until you edit the block). Renderers receive the verbatim fence
   info string, so blocks can take options. Builtin plugins render inline:
   - ABC music scores (` ```abc `), with playback controls (play/pause, loop,
-    restart, progress, tempo) that highlight notes as they sound
+    restart, progress, tempo) that highlight notes as they sound;
+    `%%MIDI swing N` swings the playback, and a libromorph listening item
+    (` ```{.abc .listen} `) shows only its title and player until you edit it
   - Mermaid diagrams (` ```mermaid `)
   - libromorph rhythm grids (` ```rhythm-grid `): box-notation tables, or a
     clock face with `.circle`; a grid with `tempo=` plays as percussion
@@ -60,6 +62,10 @@ webview, so the same app can later ship as a web app or Tauri binary (see
   - guitar diagrams: chord shapes (` ```chord `), fretboard.js scales and
     positions (` ```fretboard `, scale dots named with ♭/♯) and Fretdrom boxes
     (` ```fretdrom `), bundled so they work offline
+
+  libromorph's `::: hint` and `::: solution` blocks are labelled ("Hint",
+  "Solution" or their `title=`) and coloured as in libromorph, but stay
+  expanded so their content can be edited.
 
   Only one score or grid plays at a time. Renderers match the fence's base
   language, so ` ```mermaid {1-3} ` still renders, and Pandoc attribute

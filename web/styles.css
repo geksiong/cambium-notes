@@ -701,6 +701,32 @@ select:focus {
   stroke: var(--accent);
 }
 
+/* Listening items ({.abc .listen}): the title and player only. The notation
+   is still drawn (the player needs it) inside a wrapper kept off screen;
+   abcjs writes inline styles onto the element it renders into, so the
+   wrapper, not that element, is hidden. */
+.cb-abc-listen {
+  position: relative;
+}
+.cb-abc-listen-title {
+  font-weight: 600;
+  color: var(--accent);
+  padding: 2px 6px;
+}
+.cb-abc-listen-notation {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.cb-abc-listen-note {
+  color: var(--fg-dim);
+  font-size: 0.85em;
+  padding: 2px 6px;
+}
+
 /* abcjs playback controls (ABC scores and rhythm grids), themed in place of
    abcjs-audio.css. Clicks here never open the block's source. */
 .cb-abc-audio {
@@ -1577,6 +1603,39 @@ select:focus {
   color: var(--fg-dim);
   margin-bottom: 0.2em;
 }
+/* libromorph ::: hint / ::: solution: drawn open (the editor never folds
+   content being edited), with libromorph's labels and colours. */
+.pandoc-reveal {
+  --reveal: #a0aec0;
+  border-left-width: 4px;
+  border-left-color: var(--reveal);
+}
+.pandoc-reveal-hint {
+  --reveal: #d69e2e;
+}
+.pandoc-reveal-solution {
+  --reveal: #38a169;
+}
+:root[data-theme="light"] .pandoc-reveal-hint {
+  --reveal: #b7791f;
+}
+:root[data-theme="light"] .pandoc-reveal-solution {
+  --reveal: #2f855a;
+}
+.pandoc-reveal::before {
+  font-size: 0.85em;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--reveal);
+}
+.pandoc-reveal-hint::before {
+  content: "💡 " attr(data-label);
+}
+.pandoc-reveal-solution::before {
+  content: "✅ " attr(data-label);
+}
+
 .src-block {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.9em;

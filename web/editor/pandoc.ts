@@ -36,6 +36,7 @@
 import { Extension, Mark, mergeAttributes, Node } from "@tiptap/core";
 import { Plugin, PluginKey, Selection } from "@tiptap/pm/state";
 import { pandocVerbatimRules } from "./pandocVerbatim.ts";
+import { parseFenceAttributes } from "./attributes.ts";
 
 // ---------------------------------------------------------------------------
 // Pandoc attribute syntax
@@ -829,6 +830,41 @@ export function divLabel(open: string): string {
   return open.replace(/^:+\s*/, "").replace(/\s*:+\s*$/, "");
 }
 
+/**
+ * Divs libromorph draws as collapsible reveals (`<details>`), with their
+ * default labels. `title=` overrides the label.
+ */
+const REVEAL_KINDS: Record<string, string> = {
+  hint: "Hint",
+  solution: "Solution",
+};
+
+/**
+ * How the editor labels a div: `::: hint` → "Hint" (kind "hint"),
+ * `::: {.solution title="Walkthrough"}` → "Walkthrough" (kind "solution"),
+ * anything else → its attribute list (`{.quiz}`) and no kind. The editor
+ * never collapses a reveal, so its content stays editable.
+ */
+export function divDisplay(
+  open: string,
+): { label: string; kind: string | null } {
+  const label = divLabel(open);
+  const { classes, attrs } = parseFenceAttributes(label);
+  const kind = classes.find((c) => c in REVEAL_KINDS);
+  if (!kind) return { label, kind: null };
+  return { label: attrs.title || REVEAL_KINDS[kind], kind };
+}
+
+function divClassAndLabel(open: string) {
+  const { label, kind } = divDisplay(open);
+  return {
+    class: kind
+      ? `pandoc-div pandoc-reveal pandoc-reveal-${kind}`
+      : "pandoc-div",
+    "data-label": label,
+  };
+}
+
 /** Pandoc fenced div; the fence lines are preserved verbatim. */
 export const PandocDiv = Node.create({
   name: "pandocDiv",
@@ -861,10 +897,7 @@ export const PandocDiv = Node.create({
   renderHTML({ node, HTMLAttributes }) {
     return [
       "div",
-      mergeAttributes(HTMLAttributes, {
-        class: "pandoc-div",
-        "data-label": divLabel(node.attrs.open as string),
-      }),
+      mergeAttributes(HTMLAttributes, divClassAndLabel(node.attrs.open)),
       0,
     ];
   },

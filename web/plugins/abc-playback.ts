@@ -65,7 +65,19 @@ export function noteHighlighter(score: HTMLElement): Highlighter {
 }
 
 /**
- * Append playback controls for `tune` to `host`. Returns a cleanup that
+ * A score's swing percentage from its `%%MIDI swing N` line, as libromorph
+ * reads it (66 = 2:1); 0 when it has none. Values of 50 or less mean straight.
+ * libromorph's book-wide `abc_swing` lives in book.yaml, which the editor
+ * does not read.
+ */
+export function scoreSwing(abc: string): number {
+  const m = /^%%MIDI\s+swing\s+(\d+)/m.exec(abc);
+  return m ? Number(m[1]) : 0;
+}
+
+/**
+ * Append playback controls for `tune` to `host`, swinging offbeat eighths
+ * when `options.swing` is over 50. Returns a cleanup that
  * stops playback and removes the controls, or null when the browser has no
  * Web Audio.
  */
@@ -74,6 +86,7 @@ export function mountPlayback(
   host: HTMLElement,
   tune: TuneObject,
   highlight: Highlighter,
+  options: { swing?: number } = {},
 ): (() => void) | null {
   if (!abcjs.synth?.supportsAudio?.()) return null;
   const bar = document.createElement("div");
@@ -103,10 +116,15 @@ export function mountPlayback(
     displayProgress: true,
     displayWarp: true,
   });
-  controller.setTune(tune, false).catch((err: unknown) => {
-    console.error("Failed to prepare ABC playback:", err);
-    bar.remove();
-  });
+  // Swing as libromorph's web reader applies it: abcjs's own option, which
+  // only swings X/4 meters.
+  const swing = options.swing ?? 0;
+  controller.setTune(tune, false, swing > 50 ? { swing } : undefined).catch(
+    (err: unknown) => {
+      console.error("Failed to prepare ABC playback:", err);
+      bar.remove();
+    },
+  );
 
   return () => {
     try {

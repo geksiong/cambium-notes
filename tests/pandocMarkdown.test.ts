@@ -37,7 +37,7 @@ const { Editor } = await import("@tiptap/core");
 const { buildExtensions, getMarkdown } = await import(
   "../web/editor/extensions.ts"
 );
-const { assertEquals } = await import("@std/assert");
+const { assertEquals, assertStringIncludes } = await import("@std/assert");
 const markdownit = (await import("markdown-it")).default;
 
 function roundTrip(md: string): string {
@@ -73,6 +73,12 @@ const EXACT: Record<string, string> = {
   "nested divs + fence inside":
     "::::: quiz\nQ?\n\n- [x] A\n\n::: tip\nNested.\n:::\n\n```\n:::\n```\n:::::",
   "pipe table": "| A | B |\n|:--|--:|\n| `x` | $y$ |",
+  "hint and solution in a list item":
+    "1. Reverse a list.\n\n   ::: hint\n   Save `next` first.\n   :::\n\n" +
+    '   ::: {.solution title="Solution and analysis"}\n   $O(n)$ time.\n   :::',
+  "reveal in a 10. item, open, with code":
+    '10. Item\n\n    ::: {.hint open="open"}\n    ```python\n    x = 1\n    ```\n    :::',
+  "listening item fence": "```{.abc .listen}\nX:1\nT:Q1\nK:C\nCDEF|\n```",
 };
 
 for (const [name, md] of Object.entries(EXACT)) {
@@ -88,6 +94,27 @@ Deno.test("pandoc: literal dollars never reload as math", () => {
   const canonical = String.raw`A \$\$x\$$ and \\\$y$ end`;
   assertEquals(roundTrip(md), canonical);
   assertEquals(roundTrip(canonical), canonical);
+});
+
+Deno.test("pandoc: hint and solution divs get libromorph labels", () => {
+  const editor = new Editor({
+    element: null as unknown as HTMLElement,
+    extensions: buildExtensions(),
+    content:
+      '::: hint\na\n:::\n\n::: {.solution #s title="Walk & <talk>"}\nb\n:::' +
+      "\n\n::: note\nc\n:::",
+  });
+  const html = editor.getHTML();
+  editor.destroy();
+  assertStringIncludes(
+    html,
+    'class="pandoc-div pandoc-reveal pandoc-reveal-hint" data-label="Hint"',
+  );
+  assertStringIncludes(
+    html,
+    'class="pandoc-div pandoc-reveal pandoc-reveal-solution" data-label="Walk &amp; <talk>"',
+  );
+  assertStringIncludes(html, 'class="pandoc-div" data-label="note"');
 });
 
 Deno.test("pandoc: unclosed div stays plain text", () => {
